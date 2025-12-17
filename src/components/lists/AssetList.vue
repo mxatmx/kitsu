@@ -879,18 +879,26 @@ export default {
       if (asset.shared) {
         return false
       }
-      const key = asset.asset_type_id + columnId
+      // Include uses_import_workflow in cache key
+      const key = asset.asset_type_id + columnId + (asset.uses_import_workflow ? '-import' : '')
       if (this.isSelectableMap === undefined) this.isSelectableMap = {}
       if (this.isSelectableMap[key] === undefined) {
         const taskType = this.taskTypeMap.get(columnId)
         const assetType = this.assetTypeMap.get(asset.asset_type_id)
-        let taskTypes = assetType?.task_types || []
-        if (taskTypes.length === 0) {
-          taskTypes = this.productionAssetTaskTypes.map(t => t.id)
+        
+        // Use import_task_types if asset uses import workflow
+        let taskTypes
+        if (asset.uses_import_workflow && assetType?.import_task_types?.length > 0) {
+          taskTypes = assetType.import_task_types
+        } else {
+          taskTypes = assetType?.task_types || []
+          if (taskTypes.length === 0) {
+            taskTypes = this.productionAssetTaskTypes.map(t => t.id)
+          }
         }
-        this.isSelectable[key] = taskTypes.includes(taskType.id)
+        this.isSelectableMap[key] = taskTypes.includes(taskType.id)
       }
-      return this.isSelectable[key]
+      return this.isSelectableMap[key]
     },
 
     isSelected(indexInGroup, groupIndex, columnIndex) {
