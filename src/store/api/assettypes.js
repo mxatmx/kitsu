@@ -14,7 +14,8 @@ export default {
       name: assetType.name,
       short_name: assetType.short_name,
       description: assetType.description,
-      task_types: assetType.task_types
+      task_types: assetType.task_types,
+      import_task_types: assetType.import_task_types
     }
     return client.ppost('/api/data/entity-types', data)
   },
@@ -25,6 +26,7 @@ export default {
       short_name: assetType.short_name,
       description: assetType.description,
       task_types: assetType.task_types,
+      import_task_types: assetType.import_task_types,
       archived: assetType.archived === 'true'
     }
     return client.pput(`/api/data/entity-types/${assetType.id}`, data)
