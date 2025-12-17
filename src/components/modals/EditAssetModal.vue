@@ -63,6 +63,15 @@
             v-model="form.is_shared"
             @enter="runConfirmation"
           />
+          <combobox-boolean
+            v-if="showImportWorkflowOption"
+            :label="$t('assets.fields.use_import_workflow')"
+            v-model="form.use_import_workflow"
+            @enter="runConfirmation"
+          />
+          <p v-if="showImportWorkflowOption" class="field-hint">
+            {{ $t('assets.fields.use_import_workflow_hint') }}
+          </p>
         </form>
 
         <div class="has-text-right">
@@ -168,7 +177,8 @@ export default {
         data: {
           resolution: ''
         },
-        is_shared: 'false'
+        is_shared: 'false',
+        use_import_workflow: 'false'
       },
       assetSuccessText: ''
     }
@@ -185,6 +195,7 @@ export default {
       'assetCreated',
       'assetMetadataDescriptors',
       'assetTypes',
+      'assetTypeMap',
       'currentProduction',
       'currentEpisode',
       'episodes',
@@ -193,6 +204,14 @@ export default {
       'productionAssetTypeOptions',
       'openProductions'
     ]),
+
+    showImportWorkflowOption() {
+      // Only show when creating a new asset (not editing)
+      if (this.isEditing()) return false
+      // Check if selected asset type has import workflow configured
+      const assetType = this.assetTypeMap.get(this.form.entity_type_id)
+      return assetType?.import_task_types?.length > 0
+    },
 
     resolution() {
       return this.assetToEdit.data?.resolution || ''
@@ -233,14 +252,16 @@ export default {
     confirmAndStayClicked() {
       this.$emit('confirm-and-stay', {
         ...this.form,
-        is_shared: this.form.is_shared === 'true'
+        is_shared: this.form.is_shared === 'true',
+        use_import_workflow: this.form.use_import_workflow === 'true'
       })
     },
 
     confirmClicked() {
       this.$emit('confirm', {
         ...this.form,
-        is_shared: this.form.is_shared === 'true'
+        is_shared: this.form.is_shared === 'true',
+        use_import_workflow: this.form.use_import_workflow === 'true'
       })
     },
 
@@ -279,6 +300,7 @@ export default {
           : null
         this.form.data = {}
         this.form.is_shared = 'false'
+        this.form.use_import_workflow = 'false'
       } else {
         const entityTypeId = this.getEntityTypeIdDefaultValue()
         this.form = {
@@ -345,5 +367,13 @@ export default {
 
 .info-message {
   margin-top: 1em;
+}
+
+.field-hint {
+  font-size: 0.85em;
+  color: var(--text-alt);
+  margin-top: -0.5em;
+  margin-bottom: 1em;
+  font-style: italic;
 }
 </style>

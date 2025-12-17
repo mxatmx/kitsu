@@ -37,6 +37,8 @@ export default {
       type: 'Type',
       hidden_from_client: 'Displayed to client',
       shared: 'Shared in Asset Library',
+      use_import_workflow: 'Use Import Workflow',
+      use_import_workflow_hint: 'For imported/purchased assets that skip standard production steps'
     }
   },
 
@@ -57,7 +59,9 @@ export default {
       name: 'Name',
       short_name: 'Short Name',
       description: 'Description',
-      task_types: 'Workflow'
+      task_types: 'Workflow',
+      import_task_types: 'Import Workflow',
+      import_task_types_hint: 'Task types used for imported/purchased assets (leave empty to disable)'
     }
   },
 
@@ -725,7 +729,7 @@ export default {
     info: 'Information',
     import: 'Import',
     is_shared: 'Shared with the whole team',
-    label:{
+    label: {
       casting: 'Casting',
       chat: 'Chat',
       concepts: 'Concepts',
@@ -869,7 +873,7 @@ export default {
     subscribe: 'Subscribe to notifications'
   },
 
-  my_checks : {
+  my_checks: {
     title: 'Task to check | Tasks to check'
   },
 

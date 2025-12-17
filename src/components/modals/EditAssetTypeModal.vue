@@ -72,6 +72,38 @@
               v-if="availableTaskTypes.length > 1"
             />
           </div>
+
+          <label class="label">
+            {{ $t('asset_types.fields.import_task_types') }}
+          </label>
+          <p class="field-hint mb1">
+            {{ $t('asset_types.fields.import_task_types_hint') }}
+          </p>
+          <div class="flexrow task-types mb1">
+            <div
+              class="flexrow-item mb1"
+              :key="taskTypeId"
+              @click="removeImportTaskType(taskTypeId)"
+              v-for="taskTypeId in form.import_task_types"
+            >
+              <task-type-name
+                :task-type="taskTypeMap.get(taskTypeId)"
+                :deletable="true"
+                v-if="taskTypeId"
+              />
+            </div>
+            <combobox
+              class="flexrow-item mb1"
+              :options="availableImportTaskTypes"
+              :with-margin="false"
+              @update:model-value="
+                id => {
+                  taskTypeMap.get(id) && form.import_task_types.push(id)
+                }
+              "
+              v-if="availableImportTaskTypes.length > 1"
+            />
+          </div>
         </form>
 
         <modal-footer
@@ -140,7 +172,8 @@ export default {
         name: '',
         short_name: '',
         description: '',
-        task_types: []
+        task_types: [],
+        import_task_types: []
       }
     }
   },
@@ -178,6 +211,29 @@ export default {
           value: taskType.id
         }
       })
+    },
+
+    availableImportTaskTypes() {
+      const taskTypes = sortByName(
+        this.taskTypes.filter(taskType => {
+          return (
+            this.form.import_task_types.indexOf(taskType.id) === -1 &&
+            taskType.for_entity === 'Asset'
+          )
+        })
+      )
+      return [
+        {
+          name: '+ Task Type',
+          id: '-'
+        },
+        ...taskTypes
+      ].map(taskType => {
+        return {
+          label: taskType.name,
+          value: taskType.id
+        }
+      })
     }
   },
 
@@ -188,6 +244,13 @@ export default {
       const taskTypeIndex = this.form.task_types.indexOf(idToRemove)
       if (taskTypeIndex >= 0) {
         this.form.task_types.splice(taskTypeIndex, 1)
+      }
+    },
+
+    removeImportTaskType(idToRemove) {
+      const taskTypeIndex = this.form.import_task_types.indexOf(idToRemove)
+      if (taskTypeIndex >= 0) {
+        this.form.import_task_types.splice(taskTypeIndex, 1)
       }
     },
 
@@ -208,11 +271,13 @@ export default {
     assetTypeToEdit() {
       if (this.assetTypeToEdit.id) {
         const types = this.assetTypeToEdit.task_types || []
+        const importTypes = this.assetTypeToEdit.import_task_types || []
         this.form = {
           name: this.assetTypeToEdit.name,
           short_name: this.assetTypeToEdit.short_name,
           description: this.assetTypeToEdit.description,
           task_types: [...types],
+          import_task_types: [...importTypes],
           archived: String(this.assetTypeToEdit.archived === true)
         }
       } else {
@@ -221,6 +286,7 @@ export default {
           short_name: '',
           description: '',
           task_types: [],
+          import_task_types: [],
           archived: 'false'
         }
       }
@@ -241,5 +307,11 @@ export default {
 
 .task-types {
   flex-wrap: wrap;
+}
+
+.field-hint {
+  font-size: 0.85em;
+  color: var(--text-alt);
+  font-style: italic;
 }
 </style>
