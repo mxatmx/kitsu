@@ -524,14 +524,22 @@ const actions = {
       const assetType = assetTypeMap.get(asset.entity_type_id)
 
       // Choose workflow based on use_import_workflow flag
-      let workflow
+      let taskTypeIds
       if (data.use_import_workflow && assetType?.import_task_types?.length > 0) {
-        workflow = assetType.import_task_types
+        // For import workflow, use the import_task_types directly
+        // These should be created even if not in the production's task type list
+        taskTypeIds = assetType.import_task_types
       } else {
-        workflow = assetType ? assetType.task_types || [] : []
+        // For standard workflow, filter production task types by asset type workflow
+        const workflow = assetType ? assetType.task_types || [] : []
+        taskTypeIds = rootGetters.productionAssetTaskTypeIds
+        if (workflow.length > 0) {
+          taskTypeIds = taskTypeIds.filter(taskTypeId => {
+            return workflow.includes(taskTypeId)
+          })
+        }
       }
 
-      let taskTypeIds = rootGetters.productionAssetTaskTypeIds
       const sortInfo =
         state.assetSorting && state.assetSorting.length > 0
           ? state.assetSorting[0]
@@ -541,11 +549,6 @@ const actions = {
       // Sort list
       dispatch('changeAssetSort', sortInfo)
       // Creates tasks related to the asset type workflow
-      if (workflow.length > 0) {
-        taskTypeIds = taskTypeIds.filter(taskTypeId => {
-          return workflow.includes(taskTypeId)
-        })
-      }
       const createTaskPromises = taskTypeIds.map(taskTypeId => {
         dispatch('createTask', {
           entityId: asset.id,
