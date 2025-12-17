@@ -41,7 +41,8 @@ export default {
       name: asset.name,
       description: asset.description,
       data: asset.data,
-      is_shared: asset.is_shared
+      is_shared: asset.is_shared,
+      uses_import_workflow: asset.use_import_workflow
     }
     if (asset.source_id !== 'null') {
       data.episode_id = asset.source_id
