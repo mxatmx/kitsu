@@ -523,12 +523,21 @@ const actions = {
       const assetTypeMap = rootGetters.assetTypeMap
       const assetType = assetTypeMap.get(asset.entity_type_id)
 
+      // DEBUG: Log relevant data for import workflow debugging
+      console.log('[Import Workflow Debug]', {
+        use_import_workflow: data.use_import_workflow,
+        assetType: assetType?.name,
+        import_task_types: assetType?.import_task_types,
+        task_types: assetType?.task_types
+      })
+
       // Choose workflow based on use_import_workflow flag
       let taskTypeIds
       if (data.use_import_workflow && assetType?.import_task_types?.length > 0) {
         // For import workflow, use the import_task_types directly
         // These should be created even if not in the production's task type list
         taskTypeIds = assetType.import_task_types
+        console.log('[Import Workflow Debug] Using import_task_types:', taskTypeIds)
       } else {
         // For standard workflow, filter production task types by asset type workflow
         const workflow = assetType ? assetType.task_types || [] : []
@@ -538,6 +547,7 @@ const actions = {
             return workflow.includes(taskTypeId)
           })
         }
+        console.log('[Import Workflow Debug] Using standard workflow:', taskTypeIds)
       }
 
       const sortInfo =
