@@ -121,6 +121,13 @@
             v-else-if="isActiveTab('timesheets') && isCurrentUserManager"
           />
 
+
+
+          <person-equipment
+            :person="person"
+            v-else-if="isActiveTab('equipment')"
+          />
+
           <template v-else-if="isActiveTab('schedule')">
             <schedule
               ref="schedule-widget"
@@ -184,6 +191,7 @@ import TaskInfo from '@/components/sides/TaskInfo.vue'
 import TimesheetList from '@/components/lists/TimesheetList.vue'
 import TodosList from '@/components/lists/TodosList.vue'
 import UserCalendar from '@/components/widgets/UserCalendar.vue'
+import PersonEquipment from '@/components/widgets/PersonEquipment.vue'
 
 export default {
   name: 'person',
@@ -204,7 +212,8 @@ export default {
     TaskInfo,
     TimesheetList,
     TodosList,
-    UserCalendar
+    UserCalendar,
+    PersonEquipment
   },
 
   data() {
@@ -494,6 +503,10 @@ export default {
         {
           label: this.$t('timesheets.title'),
           name: 'timesheets'
+        },
+        {
+          label: this.$t('people.equipment'),
+          name: 'equipment'
         }
       ].filter(Boolean)
     }
@@ -735,7 +748,8 @@ export default {
         'calendar',
         'done',
         'schedule',
-        'timesheets'
+        'timesheets',
+        'equipment'
       ]
       const currentSection = this.$route.query.section
       this.activeTab = availableSections.includes(currentSection)

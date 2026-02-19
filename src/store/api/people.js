@@ -511,5 +511,51 @@ export default {
       salary: scale.salary
     }
     return client.pput(`/api/data/salary-scales/${scale.id}`, data)
+  },
+
+  // Person software license assignments
+  loadLinkedPersonSoftwareLicenses() {
+    return client.pget('/api/data/persons/software-licenses')
+  },
+
+  getSoftwareLicensesForPerson(personId) {
+    return client.pget(`/api/data/persons/${personId}/software-licenses`)
+  },
+
+  linkSoftwareLicenseToPerson(data) {
+    const { personId, softwareLicenseId } = data
+    return client.ppost(`/api/data/persons/${personId}/software-licenses`, {
+      software_id: softwareLicenseId
+    })
+  },
+
+  unlinkSoftwareLicenseFromPerson(data) {
+    const { personId, softwareLicenseId } = data
+    return client.pdel(
+      `/api/data/persons/${personId}/software-licenses/${softwareLicenseId}`
+    )
+  },
+
+  // Person hardware item assignments
+  loadLinkedPersonHardwareItems() {
+    return client.pget('/api/data/persons/hardware-items')
+  },
+
+  getHardwareItemsForPerson(personId) {
+    return client.pget(`/api/data/persons/${personId}/hardware-items`)
+  },
+
+  linkHardwareItemToPerson(data) {
+    const { personId, hardwareItemId } = data
+    return client.ppost(`/api/data/persons/${personId}/hardware-items`, {
+      hardware_item_id: hardwareItemId
+    })
+  },
+
+  unlinkHardwareItemFromPerson(data) {
+    const { personId, hardwareItemId } = data
+    return client.pdel(
+      `/api/data/persons/${personId}/hardware-items/${hardwareItemId}`
+    )
   }
 }

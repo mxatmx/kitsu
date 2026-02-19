@@ -949,6 +949,7 @@ export default {
     departments_empty: 'This user isn\'t linked to any department.',
     edit_avatar_error: 'An error occurred while updating the user\'s avatar.',
     edit_title: 'Edit user',
+    equipment: 'Equipment',
     empty_team: 'There is no one listed in the project team.',
     import_from_production: 'Import a team from another production',
     import_from_department: 'Import an entire department',

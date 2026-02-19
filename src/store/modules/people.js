@@ -161,7 +161,11 @@ const initialState = {
   personTimeSpentTotal: 0,
   personDayOff: {},
   daysOff: [],
-  dayOffMap: {}
+  dayOffMap: {},
+
+  // Person software and hardware assignments
+  personSoftwareLicenseMap: {},
+  personHardwareItemMap: {}
 }
 
 const state = {
@@ -219,7 +223,15 @@ const getters = {
   personDayOff: state => state.personDayOff,
   personIsDayOff: state => Boolean(state.personDayOff?.id),
   dayOffMap: state => state.dayOffMap,
-  daysOff: state => state.daysOff
+  daysOff: state => state.daysOff,
+
+  // Person software and hardware assignments
+  personSoftwareLicenseMap: state => state.personSoftwareLicenseMap,
+  personHardwareItemMap: state => state.personHardwareItemMap,
+  getPersonSoftwareLicenses: state => personId =>
+    state.personSoftwareLicenseMap[personId] || [],
+  getPersonHardwareItems: state => personId =>
+    state.personHardwareItemMap[personId] || []
 }
 
 const actions = {
@@ -278,11 +290,11 @@ const actions = {
     return person
   },
 
-  invitePerson({}, person) {
+  invitePerson({ }, person) {
     return peopleApi.invitePerson(person)
   },
 
-  generateToken({}, person) {
+  generateToken({ }, person) {
     return peopleApi.generateToken(person)
   },
 
@@ -307,7 +319,7 @@ const actions = {
     commit(DELETE_PEOPLE_END)
   },
 
-  async changePasswordPerson({}, { person, form }) {
+  async changePasswordPerson({ }, { person, form }) {
     if (auth.isPasswordValid(form.password, form.password2)) {
       await peopleApi.changePasswordPerson(person, form)
     } else {
@@ -397,7 +409,7 @@ const actions = {
     commit(PERSON_LOAD_TIME_SPENTS_END, timeSpents)
   },
 
-  loadPersonTimeSpentsByPeriod({}, { personId, startDate, endDate }) {
+  loadPersonTimeSpentsByPeriod({ }, { personId, startDate, endDate }) {
     return peopleApi.getTimeSpentsByPeriod(personId, startDate, endDate)
   },
 
@@ -411,7 +423,7 @@ const actions = {
   },
 
   loadAggregatedPersonTimeSpents(
-    {},
+    { },
     { personId, detailLevel, year, month, week, day, productionId, studioId }
   ) {
     return peopleApi.getAggregatedPersonTimeSpents(
@@ -427,7 +439,7 @@ const actions = {
   },
 
   loadAggregatedPersonDaysOff(
-    {},
+    { },
     { personId, detailLevel, year, month, week }
   ) {
     if (detailLevel === 'day') {
@@ -613,6 +625,75 @@ const actions = {
 
   async updateSalaryScale({ commit }, salaryScale) {
     await peopleApi.updateSalaryScale(salaryScale)
+  },
+
+  // Person software license assignments
+  async loadPersonSoftwareLicenses({ commit }) {
+    const softwareMap = await peopleApi.loadLinkedPersonSoftwareLicenses()
+    commit('SET_PERSON_SOFTWARE_LICENSE_MAP', softwareMap)
+    return softwareMap
+  },
+
+  async fetchPersonSoftwareLicenses({ commit }, personId) {
+    const softwareLicenses = await peopleApi.getSoftwareLicensesForPerson(
+      personId
+    )
+    commit('SET_PERSON_SOFTWARE_LICENSES', { personId, softwareLicenses })
+    return softwareLicenses
+  },
+
+  async linkSoftwareLicenseToPerson(
+    { commit },
+    { personId, softwareLicenseId }
+  ) {
+    await peopleApi.linkSoftwareLicenseToPerson({ personId, softwareLicenseId })
+    const softwareLicenses = await peopleApi.getSoftwareLicensesForPerson(
+      personId
+    )
+    commit('SET_PERSON_SOFTWARE_LICENSES', { personId, softwareLicenses })
+    return softwareLicenses
+  },
+
+  async unlinkSoftwareLicenseFromPerson(
+    { commit },
+    { personId, softwareLicenseId }
+  ) {
+    await peopleApi.unlinkSoftwareLicenseFromPerson({
+      personId,
+      softwareLicenseId
+    })
+    const softwareLicenses = await peopleApi.getSoftwareLicensesForPerson(
+      personId
+    )
+    commit('SET_PERSON_SOFTWARE_LICENSES', { personId, softwareLicenses })
+    return softwareLicenses
+  },
+
+  // Person hardware item assignments
+  async loadPersonHardwareItems({ commit }) {
+    const hardwareMap = await peopleApi.loadLinkedPersonHardwareItems()
+    commit('SET_PERSON_HARDWARE_ITEM_MAP', hardwareMap)
+    return hardwareMap
+  },
+
+  async fetchPersonHardwareItems({ commit }, personId) {
+    const hardwareItems = await peopleApi.getHardwareItemsForPerson(personId)
+    commit('SET_PERSON_HARDWARE_ITEMS', { personId, hardwareItems })
+    return hardwareItems
+  },
+
+  async linkHardwareItemToPerson({ commit }, { personId, hardwareItemId }) {
+    await peopleApi.linkHardwareItemToPerson({ personId, hardwareItemId })
+    const hardwareItems = await peopleApi.getHardwareItemsForPerson(personId)
+    commit('SET_PERSON_HARDWARE_ITEMS', { personId, hardwareItems })
+    return hardwareItems
+  },
+
+  async unlinkHardwareItemFromPerson({ commit }, { personId, hardwareItemId }) {
+    await peopleApi.unlinkHardwareItemFromPerson({ personId, hardwareItemId })
+    const hardwareItems = await peopleApi.getHardwareItemsForPerson(personId)
+    commit('SET_PERSON_HARDWARE_ITEMS', { personId, hardwareItems })
+    return hardwareItems
   }
 }
 
@@ -928,6 +1009,29 @@ const mutations = {
     )
     if (queryIndex >= 0) {
       state.peopleSearchQueries.splice(queryIndex, 1)
+    }
+  },
+
+  // Person software and hardware assignments
+  ['SET_PERSON_SOFTWARE_LICENSE_MAP'](state, softwareMap) {
+    state.personSoftwareLicenseMap = softwareMap
+  },
+
+  ['SET_PERSON_SOFTWARE_LICENSES'](state, { personId, softwareLicenses }) {
+    state.personSoftwareLicenseMap = {
+      ...state.personSoftwareLicenseMap,
+      [personId]: softwareLicenses
+    }
+  },
+
+  ['SET_PERSON_HARDWARE_ITEM_MAP'](state, hardwareMap) {
+    state.personHardwareItemMap = hardwareMap
+  },
+
+  ['SET_PERSON_HARDWARE_ITEMS'](state, { personId, hardwareItems }) {
+    state.personHardwareItemMap = {
+      ...state.personHardwareItemMap,
+      [personId]: hardwareItems
     }
   }
 }
