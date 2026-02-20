@@ -798,6 +798,15 @@ export default {
     user: 'User',
     week: 'Week',
     white_theme: 'Light Theme',
+    theme: 'Theme',
+    themes: {
+      light: 'Light',
+      dark: 'Dark',
+      midnight: 'Midnight',
+      forest: 'Forest',
+      sunset: 'Sunset',
+      'high-contrast': 'High Contrast'
+    },
     workspace: 'Workspace',
     year: 'Year',
     yes: 'Yes',
@@ -1418,7 +1427,8 @@ export default {
       use_original_name: 'Use original file name for downloads',
       show_hd_default: 'Show movies with HD quality by default (slower)',
       format_duration_in_hours: 'Display durations and estimations in hours',
-      dark_theme_by_default: 'Use dark theme by default'
+      dark_theme_by_default: 'Use dark theme by default',
+      default_theme: 'Default theme for new users'
     },
     production: {
       empty_list: 'The list is currently empty. It means that all data from the main settings are available to users. Add some entries to limit choices for this production.',

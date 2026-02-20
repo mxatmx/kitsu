@@ -1,8 +1,10 @@
 import client from '@/store/api/client'
 import crisp from '@/lib/crisp'
+import peopleApi from '@/store/api/people'
 import {
   USER_LOGIN,
   TOGGLE_DARK_THEME,
+  SET_THEME,
   TOGGLE_SIDEBAR,
   TOGGLE_SUPPORT_CHAT,
   TOGGLE_USER_MENU,
@@ -15,10 +17,21 @@ import {
   RESET_ALL
 } from '@/store/mutation-types'
 
+export const THEME_LIST = [
+  { value: 'light', isDark: false },
+  { value: 'dark', isDark: true },
+  { value: 'midnight', isDark: true },
+  { value: 'forest', isDark: true },
+  { value: 'sunset', isDark: true },
+  { value: 'high-contrast', isDark: true }
+]
+
+export const THEME_MAP = Object.fromEntries(THEME_LIST.map(t => [t.value, t]))
+
 const initialState = {
   currentProductionScreen: 'assets',
   currentSection: 'assets',
-  isDarkTheme: false,
+  currentTheme: 'light',
   isSidebarHidden: true,
   isSupportChat: true,
   isUserMenuHidden: true,
@@ -33,7 +46,11 @@ const state = { ...initialState }
 const getters = {
   currentProductionScreen: state => state.currentProductionScreen,
   currentSection: state => state.currentSection,
-  isDarkTheme: state => state.isDarkTheme,
+  currentTheme: state => state.currentTheme,
+  isDarkTheme: state => {
+    const theme = THEME_MAP[state.currentTheme]
+    return theme ? theme.isDark : false
+  },
   isSidebarHidden: state => state.isSidebarHidden,
   isSupportChat: state => state.isSupportChat,
   isUserMenuHidden: state => state.isUserMenuHidden,
@@ -44,11 +61,23 @@ const getters = {
 }
 
 const actions = {
-  toggleDarkTheme({ commit, state }) {
-    commit(TOGGLE_DARK_THEME)
+  setTheme({ commit, state, rootGetters }, theme) {
+    commit(SET_THEME, theme)
     if (localStorage) {
-      localStorage.setItem('dark-theme', state.isDarkTheme)
+      localStorage.setItem('theme', theme)
     }
+    // Persist to server if user is logged in
+    const user = rootGetters.user
+    if (user && user.id) {
+      peopleApi.updatePerson({ id: user.id, theme }).catch(err => {
+        console.error('Failed to save theme preference:', err)
+      })
+    }
+  },
+
+  toggleDarkTheme({ commit, state, dispatch }) {
+    const newTheme = state.currentTheme === 'light' ? 'dark' : 'light'
+    dispatch('setTheme', newTheme)
   },
 
   setSupportChat({ commit, state }, isSupportChat) {
@@ -93,8 +122,23 @@ const actions = {
 }
 
 const mutations = {
+  [SET_THEME](state, theme) {
+    if (THEME_MAP[theme]) {
+      state.currentTheme = theme
+    }
+  },
+
   [TOGGLE_DARK_THEME](state, isDarkTheme = undefined) {
-    state.isDarkTheme = isDarkTheme ?? !state.isDarkTheme
+    // Backward compat: if called with a boolean, set theme accordingly
+    if (isDarkTheme === true) {
+      state.currentTheme = 'dark'
+    } else if (isDarkTheme === false) {
+      state.currentTheme = 'light'
+    } else {
+      // Toggle between light and dark
+      const theme = THEME_MAP[state.currentTheme]
+      state.currentTheme = theme && theme.isDark ? 'light' : 'dark'
+    }
   },
 
   [TOGGLE_SUPPORT_CHAT](state, isSupportChat) {
@@ -143,7 +187,7 @@ const mutations = {
     Object.assign(state, {
       ...initialState,
       mainConfig: state.mainConfig,
-      isDarkTheme: state.isDarkTheme
+      currentTheme: state.currentTheme
     })
   }
 }

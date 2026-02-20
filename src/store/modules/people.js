@@ -124,7 +124,8 @@ const initialState = {
     timesheets_locked: false,
     use_original_file_name: false,
     format_duration_in_hours: false,
-    dark_theme_by_default: false
+    dark_theme_by_default: false,
+    default_theme: 'light'
   },
 
   people: [],
@@ -290,11 +291,11 @@ const actions = {
     return person
   },
 
-  invitePerson({ }, person) {
+  invitePerson({}, person) {
     return peopleApi.invitePerson(person)
   },
 
-  generateToken({ }, person) {
+  generateToken({}, person) {
     return peopleApi.generateToken(person)
   },
 
@@ -319,7 +320,7 @@ const actions = {
     commit(DELETE_PEOPLE_END)
   },
 
-  async changePasswordPerson({ }, { person, form }) {
+  async changePasswordPerson({}, { person, form }) {
     if (auth.isPasswordValid(form.password, form.password2)) {
       await peopleApi.changePasswordPerson(person, form)
     } else {
@@ -409,7 +410,7 @@ const actions = {
     commit(PERSON_LOAD_TIME_SPENTS_END, timeSpents)
   },
 
-  loadPersonTimeSpentsByPeriod({ }, { personId, startDate, endDate }) {
+  loadPersonTimeSpentsByPeriod({}, { personId, startDate, endDate }) {
     return peopleApi.getTimeSpentsByPeriod(personId, startDate, endDate)
   },
 
@@ -423,7 +424,7 @@ const actions = {
   },
 
   loadAggregatedPersonTimeSpents(
-    { },
+    {},
     { personId, detailLevel, year, month, week, day, productionId, studioId }
   ) {
     return peopleApi.getAggregatedPersonTimeSpents(
@@ -439,7 +440,7 @@ const actions = {
   },
 
   loadAggregatedPersonDaysOff(
-    { },
+    {},
     { personId, detailLevel, year, month, week }
   ) {
     if (detailLevel === 'day') {
@@ -635,9 +636,8 @@ const actions = {
   },
 
   async fetchPersonSoftwareLicenses({ commit }, personId) {
-    const softwareLicenses = await peopleApi.getSoftwareLicensesForPerson(
-      personId
-    )
+    const softwareLicenses =
+      await peopleApi.getSoftwareLicensesForPerson(personId)
     commit('SET_PERSON_SOFTWARE_LICENSES', { personId, softwareLicenses })
     return softwareLicenses
   },
@@ -647,9 +647,8 @@ const actions = {
     { personId, softwareLicenseId }
   ) {
     await peopleApi.linkSoftwareLicenseToPerson({ personId, softwareLicenseId })
-    const softwareLicenses = await peopleApi.getSoftwareLicensesForPerson(
-      personId
-    )
+    const softwareLicenses =
+      await peopleApi.getSoftwareLicensesForPerson(personId)
     commit('SET_PERSON_SOFTWARE_LICENSES', { personId, softwareLicenses })
     return softwareLicenses
   },
@@ -662,9 +661,8 @@ const actions = {
       personId,
       softwareLicenseId
     })
-    const softwareLicenses = await peopleApi.getSoftwareLicensesForPerson(
-      personId
-    )
+    const softwareLicenses =
+      await peopleApi.getSoftwareLicensesForPerson(personId)
     commit('SET_PERSON_SOFTWARE_LICENSES', { personId, softwareLicenses })
     return softwareLicenses
   },

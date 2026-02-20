@@ -91,6 +91,22 @@
             </select>
           </span>
         </div>
+        <div class="field">
+          <label class="label">
+            {{ $t('main.theme') }}
+          </label>
+          <span class="select is-medium">
+            <select v-model="form.theme">
+              <option
+                v-for="theme in themeList"
+                :key="theme.value"
+                :value="theme.value"
+              >
+                {{ $t(`main.themes.${theme.value}`) }}
+              </option>
+            </select>
+          </span>
+        </div>
 
         <div class="field">
           <combobox-boolean
@@ -597,6 +613,7 @@ import {
 import { mapGetters, mapActions } from 'vuex'
 
 import lang from '@/lib/lang'
+import { THEME_LIST } from '@/store/modules/main.js'
 
 import ComboboxBoolean from '@/components/widgets/ComboboxBoolean.vue'
 import ChangeAvatarModal from '@/components/modals/ChangeAvatarModal.vue'
@@ -637,7 +654,8 @@ export default {
         email: '',
         phone: '',
         timezone: 'Europe/Paris',
-        locale: 'French'
+        locale: 'French',
+        theme: 'light'
       },
       passwordForm: {
         oldPassword: '',
@@ -682,6 +700,9 @@ export default {
   watch: {
     user() {
       Object.assign(this.form, this.user)
+      if (this.user.theme) {
+        this.form.theme = this.user.theme
+      }
     }
   },
 
@@ -697,6 +718,10 @@ export default {
       return moment.tz.names().filter(timezone => {
         return timezone.indexOf('/') > 0 && timezone.indexOf('Etc') < 0
       })
+    },
+
+    themeList() {
+      return THEME_LIST
     },
 
     twoFAsEnabled() {

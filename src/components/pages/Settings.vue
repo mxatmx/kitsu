@@ -69,10 +69,22 @@
           :label="$t('settings.fields.format_duration_in_hours')"
           v-model="form.format_duration_in_hours"
         />
-        <combobox-boolean
-          :label="$t('settings.fields.dark_theme_by_default')"
-          v-model="form.dark_theme_by_default"
-        />
+        <div class="field">
+          <label class="label">
+            {{ $t('settings.fields.default_theme') }}
+          </label>
+          <span class="select is-medium">
+            <select v-model="form.default_theme">
+              <option
+                v-for="theme in themeList"
+                :key="theme.value"
+                :value="theme.value"
+              >
+                {{ $t(`main.themes.${theme.value}`) }}
+              </option>
+            </select>
+          </span>
+        </div>
         <h2>
           {{ $t('settings.integrations') }}
         </h2>
@@ -128,6 +140,7 @@ import { mapGetters, mapActions } from 'vuex'
 import ChangeAvatarModal from '@/components/modals/ChangeAvatarModal.vue'
 import ComboboxBoolean from '@/components/widgets/ComboboxBoolean.vue'
 import TextField from '@/components/widgets/TextField.vue'
+import { THEME_LIST } from '@/store/modules/main.js'
 
 export default {
   name: 'settings',
@@ -152,7 +165,7 @@ export default {
         timesheets_locked: 'false',
         use_original_file_name: 'false',
         format_duration_in_hours: 'false',
-        dark_theme_by_default: 'false'
+        default_theme: 'light'
       },
       errors: {
         save: false,
@@ -174,7 +187,11 @@ export default {
   },
 
   computed: {
-    ...mapGetters(['organisation'])
+    ...mapGetters(['organisation']),
+
+    themeList() {
+      return THEME_LIST
+    }
   },
 
   methods: {
@@ -217,7 +234,7 @@ export default {
           use_original_file_name: this.form.use_original_file_name === 'true',
           format_duration_in_hours:
             this.form.format_duration_in_hours === 'true',
-          dark_theme_by_default: this.form.dark_theme_by_default === 'true'
+          default_theme: this.form.default_theme
         }
         this.saveOrganisation(organisation)
           .catch(err => {
@@ -285,9 +302,7 @@ export default {
           format_duration_in_hours: this.organisation.format_duration_in_hours
             ? 'true'
             : 'false',
-          dark_theme_by_default: this.organisation.dark_theme_by_default
-            ? 'true'
-            : 'false'
+          default_theme: this.organisation.default_theme || 'light'
         }
       }
     }
