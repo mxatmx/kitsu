@@ -36,9 +36,9 @@ const getters = {
 
 const actions = {
   loadHardwareItems({ commit }) {
-    return hardwareItemsApi.getHardwareItems().then(hardwareItems => {
+    hardwareItemsApi.getHardwareItems().then(hardwareItems => {
       commit(LOAD_HARDWARE_ITEMS_END, hardwareItems)
-      return hardwareItems
+      Promise.resolve(hardwareItems)
     })
   },
 

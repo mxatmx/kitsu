@@ -5,43 +5,36 @@
         {{ $t('software_licenses.title') }}
       </h2>
 
-      <spinner class="mt1" v-if="isLoading" />
+      <div class="flexrow mb1">
+        <combobox
+          class="flexrow-item"
+          :options="availableSoftwareOptions"
+          :with-margin="false"
+          v-model="selectedSoftwareId"
+        />
+        <button
+          class="button is-success flexrow-item"
+          :disabled="!selectedSoftwareId"
+          @click="addSoftware"
+        >
+          {{ $t('main.add') }}
+        </button>
+      </div>
 
-      <template v-else>
-        <div class="flexrow mb1" v-if="availableSoftwareOptions.length > 0">
-          <combobox
-            class="flexrow-item"
-            :options="availableSoftwareOptions"
-            :with-margin="false"
-            v-model="selectedSoftwareId"
-          />
-          <button
-            class="button is-success flexrow-item"
-            :disabled="!selectedSoftwareId"
-            @click="addSoftware"
+      <ul class="element-list" v-if="linkedSoftware.length > 0">
+        <li v-for="item in linkedSoftware" :key="item.id" class="list-item">
+          <span class="item-name">{{ item.name }}</span>
+          <span
+            class="remove-link"
+            @click="removeSoftware(item)"
           >
-            {{ $t('main.add') }}
-          </button>
-        </div>
-        <p class="empty-text mb1" v-else-if="linkedSoftware.length === 0">
-          {{ $t('people.no_software_available') }}
-        </p>
-
-        <ul class="element-list" v-if="linkedSoftware.length > 0">
-          <li v-for="item in linkedSoftware" :key="item.id" class="list-item">
-            <span class="item-name">{{ item.name }}</span>
-            <span
-              class="remove-link"
-              @click="removeSoftware(item)"
-            >
-              {{ $t('main.remove') }}
-            </span>
-          </li>
-        </ul>
-        <p class="empty-text mt1" v-else>
-          {{ $t('people.no_equipment_assigned') }}
-        </p>
-      </template>
+            {{ $t('main.remove') }}
+          </span>
+        </li>
+      </ul>
+      <p class="empty-text mt1" v-else>
+        {{ $t('departments.no_items_linked') }}
+      </p>
     </div>
 
     <div class="column">
@@ -49,43 +42,36 @@
         {{ $t('hardware_items.title') }}
       </h2>
 
-      <spinner class="mt1" v-if="isLoading" />
+      <div class="flexrow mb1">
+        <combobox
+          class="flexrow-item"
+          :options="availableHardwareOptions"
+          :with-margin="false"
+          v-model="selectedHardwareId"
+        />
+        <button
+          class="button is-success flexrow-item"
+          :disabled="!selectedHardwareId"
+          @click="addHardware"
+        >
+          {{ $t('main.add') }}
+        </button>
+      </div>
 
-      <template v-else>
-        <div class="flexrow mb1" v-if="availableHardwareOptions.length > 0">
-          <combobox
-            class="flexrow-item"
-            :options="availableHardwareOptions"
-            :with-margin="false"
-            v-model="selectedHardwareId"
-          />
-          <button
-            class="button is-success flexrow-item"
-            :disabled="!selectedHardwareId"
-            @click="addHardware"
+      <ul class="element-list" v-if="linkedHardware.length > 0">
+        <li v-for="item in linkedHardware" :key="item.id" class="list-item">
+          <span class="item-name">{{ item.name }}</span>
+          <span
+            class="remove-link"
+            @click="removeHardware(item)"
           >
-            {{ $t('main.add') }}
-          </button>
-        </div>
-        <p class="empty-text mb1" v-else-if="linkedHardware.length === 0">
-          {{ $t('people.no_hardware_available') }}
-        </p>
-
-        <ul class="element-list" v-if="linkedHardware.length > 0">
-          <li v-for="item in linkedHardware" :key="item.id" class="list-item">
-            <span class="item-name">{{ item.name }}</span>
-            <span
-              class="remove-link"
-              @click="removeHardware(item)"
-            >
-              {{ $t('main.remove') }}
-            </span>
-          </li>
-        </ul>
-        <p class="empty-text mt1" v-else>
-          {{ $t('people.no_equipment_assigned') }}
-        </p>
-      </template>
+            {{ $t('main.remove') }}
+          </span>
+        </li>
+      </ul>
+      <p class="empty-text mt1" v-else>
+        {{ $t('departments.no_items_linked') }}
+      </p>
     </div>
   </div>
 </template>
@@ -93,14 +79,12 @@
 <script>
 import { mapActions, mapGetters } from 'vuex'
 import Combobox from '@/components/widgets/Combobox.vue'
-import Spinner from '@/components/widgets/Spinner.vue'
 
 export default {
   name: 'person-equipment',
 
   components: {
-    Combobox,
-    Spinner
+    Combobox
   },
 
   props: {
@@ -112,7 +96,6 @@ export default {
 
   data() {
     return {
-      isLoading: true,
       selectedSoftwareId: '',
       selectedHardwareId: ''
     }
@@ -155,19 +138,11 @@ export default {
     }
   },
 
-  async mounted() {
-    this.isLoading = true
-    try {
-      await Promise.all([
-        this.loadSoftwareLicenses(),
-        this.loadHardwareItems(),
-        this.fetchPersonSoftwareLicenses(this.person.id),
-        this.fetchPersonHardwareItems(this.person.id)
-      ])
-    } catch (err) {
-      console.error('Failed to load equipment data:', err)
-    }
-    this.isLoading = false
+  mounted() {
+    this.loadSoftwareLicenses()
+    this.loadHardwareItems()
+    this.fetchPersonSoftwareLicenses(this.person.id)
+    this.fetchPersonHardwareItems(this.person.id)
   },
 
   methods: {
@@ -217,15 +192,8 @@ export default {
 
   watch: {
     'person.id'() {
-      this.isLoading = true
-      Promise.all([
-        this.fetchPersonSoftwareLicenses(this.person.id),
-        this.fetchPersonHardwareItems(this.person.id)
-      ])
-        .catch(err => console.error('Failed to reload equipment:', err))
-        .finally(() => {
-          this.isLoading = false
-        })
+      this.fetchPersonSoftwareLicenses(this.person.id)
+      this.fetchPersonHardwareItems(this.person.id)
     }
   }
 }

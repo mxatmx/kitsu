@@ -38,9 +38,9 @@ const getters = {
 
 const actions = {
   loadSoftwareLicenses({ commit }) {
-    return softwareLicensesApi.getSoftwareLicenses().then(softwareLicenses => {
+    softwareLicensesApi.getSoftwareLicenses().then(softwareLicenses => {
       commit(LOAD_SOFTWARE_LICENSES_END, softwareLicenses)
-      return softwareLicenses
+      Promise.resolve(softwareLicenses)
     })
   },
 
