@@ -157,22 +157,8 @@
             {{ $t('main.profile') }}
           </router-link>
         </li>
-        <li class="theme-menu-item">
-          <span class="theme-menu-label">{{ $t('main.theme') }}</span>
-          <ul class="theme-submenu">
-            <li
-              v-for="theme in themeList"
-              :key="theme.value"
-              :class="{ active: currentTheme === theme.value }"
-              @click="onThemeSelect(theme.value)"
-            >
-              <span class="theme-check" v-if="currentTheme === theme.value"
-                >✓</span
-              >
-              <span class="theme-check" v-else>&nbsp;</span>
-              {{ $t(`main.themes.${theme.value}`) }}
-            </li>
-          </ul>
+        <li @click="toggleDarkTheme">
+          {{ !isDarkTheme ? $t('main.dark_theme') : $t('main.white_theme') }}
         </li>
         <li @click="setSupportChat(!isSupportChat)">
           {{
@@ -247,7 +233,6 @@ import {
   ZapIcon
 } from 'lucide-vue-next'
 
-import { THEME_LIST } from '@/store/modules/main.js'
 import localPreferences from '@/lib/preferences'
 
 import GlobalSearchField from '@/components/tops/GlobalSearchField.vue'
@@ -311,7 +296,6 @@ export default {
       'isSupportChat',
       'isUserMenuHidden',
       'isTVShow',
-      'currentTheme',
       'lastProductionRoute',
       'lastProductionViewed',
       'mainConfig',
@@ -322,10 +306,6 @@ export default {
       'productionEditTaskTypes',
       'user'
     ]),
-
-    themeList() {
-      return THEME_LIST
-    },
 
     logoPath() {
       return (
@@ -564,16 +544,11 @@ export default {
       'setProduction',
       'setCurrentEpisode',
       'setSupportChat',
-      'setTheme',
       'toggleDarkTheme',
       'toggleNotificationReadStatusLocal',
       'toggleSidebar',
       'toggleUserMenu'
     ]),
-
-    onThemeSelect(theme) {
-      this.setTheme(theme)
-    },
 
     getCurrentSectionFromRoute() {
       if (this.$route.name === 'person') {
@@ -1060,47 +1035,6 @@ export default {
 @media screen and (max-width: 768px) {
   .nav-right {
     display: flex;
-  }
-}
-
-.theme-menu-item {
-  position: relative;
-
-  .theme-menu-label {
-    display: block;
-    padding: 0.2em 0;
-  }
-
-  .theme-submenu {
-    margin-left: 0;
-    padding-left: 0.5em;
-
-    li {
-      display: flex;
-      align-items: center;
-      padding: 0.15em 0.4em;
-      font-size: 0.95em;
-      list-style-type: none;
-      cursor: pointer;
-      border-radius: 4px;
-
-      &:hover {
-        background: var(--background-hover);
-      }
-
-      &.active {
-        font-weight: 600;
-        color: $green;
-      }
-    }
-  }
-
-  .theme-check {
-    display: inline-block;
-    width: 1.2em;
-    text-align: center;
-    margin-right: 0.3em;
-    font-weight: bold;
   }
 }
 </style>

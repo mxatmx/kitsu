@@ -1,5 +1,5 @@
 <template>
-  <div :class="themeClasses">
+  <div :class="{ theme: true, dark: isDarkTheme }">
     <div
       class="has-text-centered mt2 loading-info xyz-in"
       xyz="fade"
@@ -49,7 +49,6 @@ export default {
       'assetTypeMap',
       'currentEpisode',
       'currentProduction',
-      'currentTheme',
       'departmentMap',
       'todoMap',
       'isCurrentUserAdmin',
@@ -67,19 +66,6 @@ export default {
       'taskTypeMap',
       'user'
     ]),
-
-    themeClasses() {
-      const classes = { theme: true }
-      if (this.currentTheme === 'dark') {
-        classes.dark = true
-      } else if (this.currentTheme !== 'light') {
-        // All non-light themes use 'dark' class for base dark styling
-        // plus their own theme class for color overrides
-        classes.dark = true
-        classes[`theme-${this.currentTheme}`] = true
-      }
-      return classes
-    },
 
     assetMap() {
       return assetsStore.cache.assetMap
@@ -104,7 +90,7 @@ export default {
 
   async mounted() {
     const config = await this.setMainConfig()
-    this.setupTheme()
+    this.setupDarkTheme()
     this.setupCrisp(config)
     this.setupSentry(config)
     this.setupAuthChannel()
@@ -148,22 +134,13 @@ export default {
       }
     },
 
-    setupTheme() {
-      // Check for new theme preference first, then migrate old dark-theme
-      let theme = localStorage.getItem('theme')
-      if (!theme) {
-        const darkTheme = localStorage.getItem('dark-theme')
-        if (darkTheme === 'true') {
-          theme = 'dark'
-        } else if (darkTheme === 'false') {
-          theme = 'light'
-        } else {
-          theme = this.mainConfig?.default_theme || 'light'
-        }
-        // Migrate to new key
-        localStorage.setItem('theme', theme)
-      }
-      this.$store.commit('SET_THEME', theme)
+    setupDarkTheme() {
+      const darkTheme = localStorage.getItem('dark-theme')
+      const isDarkTheme =
+        darkTheme === 'true' ||
+        (darkTheme !== 'false' &&
+          Boolean(this.mainConfig?.dark_theme_by_default))
+      this.$store.commit('TOGGLE_DARK_THEME', isDarkTheme)
     },
 
     setupCrisp(config) {
@@ -202,20 +179,12 @@ export default {
   },
 
   watch: {
-    currentTheme: {
+    isDarkTheme: {
       immediate: true,
       handler() {
-        const backgrounds = {
-          light: '#FFF',
-          dark: '#36393F',
-          midnight: '#1A1B2E',
-          forest: '#1A2E1A',
-          sunset: '#2E1A1A',
-          'high-contrast': '#000000'
-        }
-        const bg = backgrounds[this.currentTheme] || '#FFF'
-        document.documentElement.style.background = bg
-        document.body.style.background = bg
+        const background = this.isDarkTheme ? '#36393F' : '#FFF'
+        document.documentElement.style.background = background
+        document.body.style.background = background
       }
     },
 
