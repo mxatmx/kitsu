@@ -880,15 +880,21 @@ export default {
         return false
       }
       // Include uses_import_workflow in cache key
-      const key = asset.asset_type_id + columnId + (asset.uses_import_workflow ? '-import' : '')
+      const key =
+        asset.asset_type_id +
+        columnId +
+        (asset.uses_import_workflow ? '-import' : '')
       if (this.isSelectableMap === undefined) this.isSelectableMap = {}
       if (this.isSelectableMap[key] === undefined) {
         const taskType = this.taskTypeMap.get(columnId)
         const assetType = this.assetTypeMap.get(asset.asset_type_id)
-        
+
         // Use import_task_types if asset uses import workflow
         let taskTypes
-        if (asset.uses_import_workflow && assetType?.import_task_types?.length > 0) {
+        if (
+          asset.uses_import_workflow &&
+          assetType?.import_task_types?.length > 0
+        ) {
           taskTypes = assetType.import_task_types
         } else {
           taskTypes = assetType?.task_types || []

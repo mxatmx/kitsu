@@ -100,8 +100,7 @@ const availableItems = computed(() => {
 // Methods
 
 const selectPerson = person => {
-  selectedPerson.value =
-    selectedPerson.value === person ? null : person
+  selectedPerson.value = selectedPerson.value === person ? null : person
 }
 
 const selectItem = item => {

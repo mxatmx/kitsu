@@ -46,6 +46,17 @@
 
     <button
       class="button"
+      :title="$t('row_actions.equipment', 'Equipment')"
+      data-test="button-equipment"
+      tabindex="-1"
+      @click="$emit('equipment-clicked')"
+      v-if="!hideEquipment && !entry.canceled && isCurrentUserAdmin"
+    >
+      <monitor-icon class="icon is-small" />
+    </button>
+
+    <button
+      class="button"
       :title="$t('row_actions.restore')"
       data-test="button-restore"
       tabindex="-1"
@@ -98,6 +109,7 @@ import {
   ClockIcon,
   EditIcon,
   KeyIcon,
+  MonitorIcon,
   RefreshCwIcon,
   RotateCcwIcon,
   TrashIcon
@@ -111,6 +123,7 @@ export default {
     ClockIcon,
     EditIcon,
     KeyIcon,
+    MonitorIcon,
     RefreshCwIcon,
     RotateCcwIcon,
     TrashIcon
@@ -128,6 +141,10 @@ export default {
     hideChangePassword: {
       type: Boolean,
       default: true
+    },
+    hideEquipment: {
+      type: Boolean,
+      default: false
     },
     hideDelete: {
       type: Boolean,
@@ -152,6 +169,7 @@ export default {
     'change-password-clicked',
     'delete-clicked',
     'edit-clicked',
+    'equipment-clicked',
     'history-clicked',
     'refresh-clicked',
     'restore-clicked'

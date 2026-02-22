@@ -73,6 +73,7 @@
       @avatar-clicked="onAvatarClicked"
       @delete-clicked="onDeleteClicked"
       @edit-clicked="onEditClicked"
+      @equipment-clicked="onEquipmentClicked"
       @change-password-clicked="onChangePasswordClicked"
     />
 
@@ -133,6 +134,13 @@
       @invite="confirmInvite"
     />
 
+    <edit-equipment-modal
+      :active="modals.equipment"
+      :person="personToEdit"
+      @close="modals.equipment = false"
+      v-if="modals.equipment"
+    />
+
     <change-password-modal
       active
       :person="personToChangePassword"
@@ -169,6 +177,7 @@ import ComboboxDepartment from '@/components/widgets/ComboboxDepartment.vue'
 import ComboboxStudio from '@/components/widgets/ComboboxStudio.vue'
 import ComboboxStyled from '@/components/widgets/ComboboxStyled.vue'
 import EditAvatarModal from '@/components/modals/EditAvatarModal.vue'
+import EditEquipmentModal from '@/components/modals/EditEquipmentModal.vue'
 import EditPersonModal from '@/components/modals/EditPersonModal.vue'
 import HardDeleteModal from '@/components/modals/HardDeleteModal.vue'
 import ImportModal from '@/components/modals/ImportModal.vue'
@@ -192,6 +201,7 @@ export default {
     ComboboxStudio,
     ComboboxStyled,
     EditAvatarModal,
+    EditEquipmentModal,
     EditPersonModal,
     HardDeleteModal,
     ImportModal,
@@ -246,6 +256,7 @@ export default {
         changePassword: false,
         del: false,
         edit: false,
+        equipment: false,
         importModal: false,
         isImportRenderDisplayed: false
       },
@@ -541,6 +552,11 @@ export default {
       this.success.invite = false
       this.personToEdit = person
       this.modals.edit = true
+    },
+
+    onEquipmentClicked(person) {
+      this.personToEdit = person
+      this.modals.equipment = true
     },
 
     onChangePasswordClicked(person) {

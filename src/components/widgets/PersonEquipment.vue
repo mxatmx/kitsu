@@ -30,10 +30,7 @@
         <ul class="element-list" v-if="linkedSoftware.length > 0">
           <li v-for="item in linkedSoftware" :key="item.id" class="list-item">
             <span class="item-name">{{ item.name }}</span>
-            <span
-              class="remove-link"
-              @click="removeSoftware(item)"
-            >
+            <span class="remove-link" @click="removeSoftware(item)">
               {{ $t('main.remove') }}
             </span>
           </li>
@@ -74,10 +71,7 @@
         <ul class="element-list" v-if="linkedHardware.length > 0">
           <li v-for="item in linkedHardware" :key="item.id" class="list-item">
             <span class="item-name">{{ item.name }}</span>
-            <span
-              class="remove-link"
-              @click="removeHardware(item)"
-            >
+            <span class="remove-link" @click="removeHardware(item)">
               {{ $t('main.remove') }}
             </span>
           </li>
@@ -226,6 +220,22 @@ export default {
         .finally(() => {
           this.isLoading = false
         })
+    },
+    availableSoftwareOptions: {
+      immediate: true,
+      handler(options) {
+        if (options && options.length > 0 && !this.selectedSoftwareId) {
+          this.selectedSoftwareId = options[0].value
+        }
+      }
+    },
+    availableHardwareOptions: {
+      immediate: true,
+      handler(options) {
+        if (options && options.length > 0 && !this.selectedHardwareId) {
+          this.selectedHardwareId = options[0].value
+        }
+      }
     }
   }
 }

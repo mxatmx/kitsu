@@ -781,7 +781,7 @@ export default {
         const taskType = this.taskTypeMap.get(item.task_type_id)
         return taskType && taskType.for_entity === this.entityTypeFilter
       })
-    },
+    }
   },
 
   methods: {
@@ -932,7 +932,7 @@ export default {
       this.zoomLevel = this.zoomOptions.map(o => o.value).includes(zoom)
         ? zoom
         : DEFAULT_ZOOM
-      
+
       const entityType = this.$route.query.entityType
       if (entityType) {
         this.entityTypeFilter = entityType
@@ -1905,9 +1905,8 @@ export default {
     },
 
     onEntityFilterChanged() {
-      const entityType = this.entityTypeFilter !== 'ALL'
-        ? this.entityTypeFilter
-        : undefined
+      const entityType =
+        this.entityTypeFilter !== 'ALL' ? this.entityTypeFilter : undefined
       this.updateRoute({ entityType })
     },
 

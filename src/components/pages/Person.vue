@@ -121,8 +121,6 @@
             v-else-if="isActiveTab('timesheets') && isCurrentUserManager"
           />
 
-
-
           <person-equipment
             :person="person"
             v-else-if="isActiveTab('equipment')"

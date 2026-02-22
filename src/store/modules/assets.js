@@ -525,7 +525,10 @@ const actions = {
 
       // Choose workflow based on use_import_workflow flag
       let taskTypeIds
-      if (data.use_import_workflow && assetType?.import_task_types?.length > 0) {
+      if (
+        data.use_import_workflow &&
+        assetType?.import_task_types?.length > 0
+      ) {
         // For import workflow, use the import_task_types directly
         // These should be created even if not in the production's task type list
         taskTypeIds = assetType.import_task_types
@@ -606,11 +609,11 @@ const actions = {
     })
   },
 
-  shareAssets({ }, { production, assetType, assetIds }) {
+  shareAssets({}, { production, assetType, assetIds }) {
     return assetsApi.shareAssets(production, assetType, assetIds)
   },
 
-  unshareAssets({ }, { assetIds }) {
+  unshareAssets({}, { assetIds }) {
     return assetsApi.shareAssets(null, null, assetIds, false)
   },
 
@@ -1143,7 +1146,7 @@ const mutations = {
   [ASSET_CSV_FILE_SELECTED](state, formData) {
     state.assetsCsvFormData = formData
   },
-  [IMPORT_ASSETS_START](state) { },
+  [IMPORT_ASSETS_START](state) {},
   [IMPORT_ASSETS_END](state) {
     state.assetsCsvFormData = null
   },
@@ -1221,7 +1224,7 @@ const mutations = {
     }
   },
 
-  [NEW_TASK_COMMENT_END](state, { comment, taskId }) { },
+  [NEW_TASK_COMMENT_END](state, { comment, taskId }) {},
 
   [SET_ASSET_SEARCH](state, payload) {
     payload.sorting = state.assetSorting

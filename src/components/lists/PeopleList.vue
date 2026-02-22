@@ -101,6 +101,7 @@
                 $emit('change-password-clicked', person)
               "
               @edit-clicked="$emit('edit-clicked', person)"
+              @equipment-clicked="$emit('equipment-clicked', person)"
               @refresh-clicked="$emit('refresh-clicked', person)"
               @delete-clicked="$emit('delete-clicked', person)"
               v-if="isCurrentUserAdmin"
@@ -169,6 +170,7 @@ export default {
     'change-password-clicked',
     'delete-clicked',
     'edit-clicked',
+    'equipment-clicked',
     'refresh-clicked'
   ],
 
