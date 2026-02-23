@@ -113,7 +113,7 @@ export default {
 
   async mounted() {
     this.activeTab = this.$route.query.tab || 'active'
-    this.linkedHardwareItems = await this.loadLinkedHardwareItems()
+    this.linkedHardwareItems = await this.loadPersonHardwareItems()
   },
 
   computed: {
@@ -141,14 +141,12 @@ export default {
     usedAmounts() {
       const usedAmounts = {}
       this.activePeople.forEach(person => {
-        person.departments.forEach(departmentId => {
-          const departmentItems = this.linkedHardwareItems[departmentId] || []
-          departmentItems.forEach(item => {
-            if (!usedAmounts[item.id]) {
-              usedAmounts[item.id] = 0
-            }
-            usedAmounts[item.id] += 1
-          })
+        const personItems = this.linkedHardwareItems[person.id] || []
+        personItems.forEach(item => {
+          if (!usedAmounts[item.id]) {
+            usedAmounts[item.id] = 0
+          }
+          usedAmounts[item.id] += 1
         })
       })
       return usedAmounts
@@ -172,7 +170,7 @@ export default {
       'editHardwareItem',
       'newHardwareItem',
       'loadHardwareItems',
-      'loadLinkedHardwareItems'
+      'loadPersonHardwareItems'
     ]),
 
     confirmEditHardwareItem(form) {

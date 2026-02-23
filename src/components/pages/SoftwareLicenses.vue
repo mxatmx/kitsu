@@ -113,7 +113,7 @@ export default {
 
   async mounted() {
     this.activeTab = this.$route.query.tab || 'active'
-    this.linkedSoftwareLicenses = await this.loadLinkedSoftwareLicenses()
+    this.linkedSoftwareLicenses = await this.loadPersonSoftwareLicenses()
   },
 
   computed: {
@@ -136,15 +136,12 @@ export default {
     usedAmounts() {
       const usedAmounts = {}
       this.activePeople.forEach(person => {
-        person.departments.forEach(departmentId => {
-          const departmentItems =
-            this.linkedSoftwareLicenses[departmentId] || []
-          departmentItems.forEach(item => {
-            if (!usedAmounts[item.id]) {
-              usedAmounts[item.id] = 0
-            }
-            usedAmounts[item.id] += 1
-          })
+        const personItems = this.linkedSoftwareLicenses[person.id] || []
+        personItems.forEach(item => {
+          if (!usedAmounts[item.id]) {
+            usedAmounts[item.id] = 0
+          }
+          usedAmounts[item.id] += 1
         })
       })
       return usedAmounts
@@ -176,7 +173,7 @@ export default {
       'deleteSoftwareLicense',
       'editSoftwareLicense',
       'newSoftwareLicense',
-      'loadLinkedSoftwareLicenses'
+      'loadPersonSoftwareLicenses'
     ]),
 
     confirmEditSoftwareLicense(form) {
