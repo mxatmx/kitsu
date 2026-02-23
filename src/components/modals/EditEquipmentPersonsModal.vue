@@ -14,8 +14,9 @@
           }}
         </p>
 
-        <combobox-person
+        <combobox
           v-model="selectedPersonId"
+          :options="availablePeopleOptions"
           :with-margin="false"
           class="mb1"
         />
@@ -75,7 +76,7 @@
 <script>
 import { mapActions, mapGetters } from 'vuex'
 import { modalMixin } from '@/components/modals/base_modal'
-import ComboboxPerson from '@/components/widgets/ComboboxPerson.vue'
+import Combobox from '@/components/widgets/Combobox.vue'
 import Spinner from '@/components/widgets/Spinner.vue'
 
 export default {
@@ -84,7 +85,7 @@ export default {
   mixins: [modalMixin],
 
   components: {
-    ComboboxPerson,
+    Combobox,
     Spinner
   },
 
@@ -130,6 +131,17 @@ export default {
           return hardware.some(item => item.id === this.equipment.id)
         }
       })
+    },
+
+    availablePeopleOptions() {
+      const assignedIds = this.assignedPeople.map(p => p.id)
+      return this.activePeople
+        .filter(p => !assignedIds.includes(p.id))
+        .map(p => ({
+          label: p.full_name,
+          value: p.id
+        }))
+        .sort((a, b) => a.label.localeCompare(b.label))
     }
   },
 
