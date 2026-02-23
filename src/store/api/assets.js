@@ -61,7 +61,8 @@ export default {
       project_id: asset.project_id,
       ready_for: asset.ready_for,
       data: asset.data,
-      is_shared: asset.is_shared
+      is_shared: asset.is_shared,
+      uses_import_workflow: asset.use_import_workflow
     }
     if (asset.is_casting_standby !== undefined) {
       data.is_casting_standby = Boolean(asset.is_casting_standby)

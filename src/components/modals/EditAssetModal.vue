@@ -206,8 +206,6 @@ export default {
     ]),
 
     showImportWorkflowOption() {
-      // Only show when creating a new asset (not editing)
-      if (this.isEditing()) return false
       // Check if selected asset type has import workflow configured
       const assetType = this.assetTypeMap.get(this.form.entity_type_id)
       return assetType?.import_task_types?.length > 0
@@ -314,7 +312,10 @@ export default {
               ...this.assetToEdit.data,
               resolution: this.assetToEdit.data.resolution || ''
             } || {},
-          is_shared: String(this.assetToEdit.is_shared === true)
+          is_shared: String(this.assetToEdit.is_shared === true),
+          use_import_workflow: String(
+            this.assetToEdit.uses_import_workflow === true
+          )
         }
       }
     }
