@@ -43,8 +43,10 @@
               {{ remainingHardwareItems[entry.id] }}
             </td>
             <row-actions-cell
+              :hide-users="false"
               @edit-clicked="$emit('edit-clicked', entry)"
               @delete-clicked="$emit('delete-clicked', entry)"
+              @users-clicked="$emit('users-clicked', entry)"
             />
           </tr>
         </tbody>
@@ -90,7 +92,7 @@ export default {
     }
   },
 
-  emits: ['delete-clicked', 'edit-clicked']
+  emits: ['delete-clicked', 'edit-clicked', 'users-clicked']
 }
 </script>
 

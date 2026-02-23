@@ -95,6 +95,7 @@
               :hide-avatar="!person.active"
               :hide-change-password="isBots || !person.active"
               :hide-delete="person.active"
+              :hide-equipment="!person.active"
               :hide-refresh="!isBots || !person.active"
               @avatar-clicked="$emit('avatar-clicked', person)"
               @change-password-clicked="

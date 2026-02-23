@@ -57,6 +57,17 @@
 
     <button
       class="button"
+      :title="$t('row_actions.users', 'Users')"
+      data-test="button-users"
+      tabindex="-1"
+      @click="$emit('users-clicked')"
+      v-if="!hideUsers && !entry.canceled && isCurrentUserAdmin"
+    >
+      <users-icon class="icon is-small" />
+    </button>
+
+    <button
+      class="button"
       :title="$t('row_actions.restore')"
       data-test="button-restore"
       tabindex="-1"
@@ -112,7 +123,8 @@ import {
   MonitorIcon,
   RefreshCwIcon,
   RotateCcwIcon,
-  TrashIcon
+  TrashIcon,
+  UsersIcon
 } from 'lucide-vue-next'
 
 export default {
@@ -126,7 +138,8 @@ export default {
     MonitorIcon,
     RefreshCwIcon,
     RotateCcwIcon,
-    TrashIcon
+    TrashIcon,
+    UsersIcon
   },
 
   props: {
@@ -144,7 +157,7 @@ export default {
     },
     hideEquipment: {
       type: Boolean,
-      default: false
+      default: true
     },
     hideDelete: {
       type: Boolean,
@@ -161,6 +174,10 @@ export default {
     hideRefresh: {
       type: Boolean,
       default: true
+    },
+    hideUsers: {
+      type: Boolean,
+      default: true
     }
   },
 
@@ -172,7 +189,8 @@ export default {
     'equipment-clicked',
     'history-clicked',
     'refresh-clicked',
-    'restore-clicked'
+    'restore-clicked',
+    'users-clicked'
   ],
 
   computed: {

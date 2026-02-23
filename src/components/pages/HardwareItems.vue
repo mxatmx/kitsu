@@ -18,6 +18,7 @@
       :remaining-hardware-items="remainingHardwareItems"
       @edit-clicked="onEditClicked"
       @delete-clicked="onDeleteClicked"
+      @users-clicked="onUsersClicked"
     />
 
     <edit-hardware-item-modal
@@ -27,6 +28,14 @@
       :hardware-item-to-edit="hardwareItemToEdit"
       @cancel="modals.edit = false"
       @confirm="confirmEditHardwareItem"
+    />
+
+    <edit-equipment-persons-modal
+      :active="modals.users"
+      :equipment="equipmentToAssignPersons"
+      equipment-type="hardware"
+      @close="modals.users = false"
+      v-if="modals.users"
     />
 
     <delete-modal
@@ -48,6 +57,7 @@ import csv from '@/lib/csv'
 import stringHelpers from '@/lib/string'
 
 import DeleteModal from '@/components/modals/DeleteModal.vue'
+import EditEquipmentPersonsModal from '@/components/modals/EditEquipmentPersonsModal.vue'
 import EditHardwareItemModal from '@/components/modals/EditHardwareItemModal.vue'
 import HardwareItemList from '@/components/lists/HardwareItemList.vue'
 import ListPageHeader from '@/components/widgets/ListPageHeader.vue'
@@ -58,6 +68,7 @@ export default {
 
   components: {
     DeleteModal,
+    EditEquipmentPersonsModal,
     EditHardwareItemModal,
     HardwareItemList,
     ListPageHeader,
@@ -70,6 +81,7 @@ export default {
       choices: [],
       hardwareItemToDelete: null,
       hardwareItemToEdit: {},
+      equipmentToAssignPersons: {},
       linkedHardwareItems: {},
       errors: {
         del: false,
@@ -78,7 +90,8 @@ export default {
       },
       modals: {
         del: false,
-        edit: false
+        edit: false,
+        users: false
       },
       loading: {
         del: false,
@@ -229,6 +242,11 @@ export default {
       this.hardwareItemToEdit = hardwareItem
       this.errors.edit = false
       this.modals.edit = true
+    },
+
+    onUsersClicked(hardwareItem) {
+      this.equipmentToAssignPersons = hardwareItem
+      this.modals.users = true
     },
 
     onDeleteClicked(hardwareItem) {

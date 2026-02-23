@@ -18,6 +18,7 @@
       :remaining-software-licenses="remainingSoftwareLicenses"
       @edit-clicked="onEditClicked"
       @delete-clicked="onDeleteClicked"
+      @users-clicked="onUsersClicked"
     />
 
     <edit-software-license-modal
@@ -27,6 +28,14 @@
       :software-license-to-edit="softwareLicenseToEdit"
       @cancel="modals.edit = false"
       @confirm="confirmEditSoftwareLicense"
+    />
+
+    <edit-equipment-persons-modal
+      :active="modals.users"
+      :equipment="equipmentToAssignPersons"
+      equipment-type="software"
+      @close="modals.users = false"
+      v-if="modals.users"
     />
 
     <delete-modal
@@ -48,6 +57,7 @@ import csv from '@/lib/csv'
 import stringHelpers from '@/lib/string'
 
 import DeleteModal from '@/components/modals/DeleteModal.vue'
+import EditEquipmentPersonsModal from '@/components/modals/EditEquipmentPersonsModal.vue'
 import EditSoftwareLicenseModal from '@/components/modals/EditSoftwareLicenseModal.vue'
 import ListPageHeader from '@/components/widgets/ListPageHeader.vue'
 import RouteTabs from '@/components/widgets/RouteTabs.vue'
@@ -58,6 +68,7 @@ export default {
 
   components: {
     DeleteModal,
+    EditEquipmentPersonsModal,
     EditSoftwareLicenseModal,
     ListPageHeader,
     RouteTabs,
@@ -70,6 +81,7 @@ export default {
       linkedSoftwareLicenses: {},
       softwareLicenseToDelete: null,
       softwareLicenseToEdit: {},
+      equipmentToAssignPersons: {},
       choices: [],
       errors: {
         del: false,
@@ -78,7 +90,8 @@ export default {
       },
       modals: {
         del: false,
-        edit: false
+        edit: false,
+        users: false
       },
       loading: {
         del: false,
@@ -237,6 +250,11 @@ export default {
       this.softwareLicenseToEdit = softwareLicense
       this.errors.edit = false
       this.modals.edit = true
+    },
+
+    onUsersClicked(softwareLicense) {
+      this.equipmentToAssignPersons = softwareLicense
+      this.modals.users = true
     },
 
     onDeleteClicked(softwareLicense) {
