@@ -12,7 +12,7 @@ import {
 } from '@/store/mutation-types.js'
 
 let channel
-const AUTHENTICATED_REQUEST_TIMEOUT_MS = 10000
+const AUTHENTICATED_REQUEST_TIMEOUT_MS = 20000
 
 const auth = {
   logIn(payload, callback) {
