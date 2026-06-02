@@ -183,6 +183,10 @@ export default {
         {
           label: 'episode',
           value: 'episode'
+        },
+        {
+          label: 'edit',
+          value: 'edit'
         }
       ],
       fieldTypeOptions: [
@@ -218,6 +222,7 @@ export default {
       'shotTaskTypes',
       'sequenceTaskTypes',
       'episodeTaskTypes',
+      'editTaskTypes',
       'taskStatuses'
     ]),
 
@@ -255,6 +260,10 @@ export default {
         this.form.inEntityTaskTypes = this.episodeTaskTypes
         this.form.outFieldType = 'status'
         this.form.outEntityTaskTypes = this.episodeTaskTypes
+      } else if (fieldType === 'edit') {
+        this.form.inEntityTaskTypes = this.editTaskTypes
+        this.form.outFieldType = 'status'
+        this.form.outEntityTaskTypes = this.editTaskTypes
       }
     }
   },
@@ -271,6 +280,8 @@ export default {
           entityTaskTypes = this.sequenceTaskTypes
         } else if (this.form.entityType === 'episode') {
           entityTaskTypes = this.episodeTaskTypes
+        } else if (this.form.entityType === 'edit') {
+          entityTaskTypes = this.editTaskTypes
         }
         this.form = {
           entityType: this.isEditing

@@ -349,7 +349,8 @@ export default {
       asset: 'Asset',
       shot: 'Shot',
       sequence: 'Sequence',
-      episode: 'Episode'
+      episode: 'Episode',
+      edit: 'Edit'
     },
     field_types: {
       status: 'Status',
