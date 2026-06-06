@@ -383,7 +383,7 @@ export default {
     },
 
     focusAddShot() {
-      this.$refs.addShotInput.focus()
+      this.$refs.addShotInput?.focus()
     },
 
     selectEpisode(episodeId) {
