@@ -324,7 +324,9 @@
       "wrong_fido_challenge": "FIDOチャレンジによる認証に失敗しました。",
       "login_server_failed": "ログイン中にサーバーエラーが発生しました。",
       "login_with_saml": "saml_idp_name}でSSOログイン。",
-      "login_saml": "SSOログイン"
+      "login_saml": "SSOログイン",
+      "login_with_oidc": "SSO login with {oidc_idp_name}",
+      "login_oidc": "SSO login"
     },
     "main": {
       "about": "当社について",

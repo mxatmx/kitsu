@@ -322,7 +322,9 @@
       "wrong_fido_challenge": "تأیید چالش FIDO ناموفق بود.",
       "login_server_failed": "هنگام ورود به سیستم یک خطای سرور رخ داد.",
       "login_with_saml": "",
-      "login_saml": ""
+      "login_saml": "",
+      "login_with_oidc": "SSO login with {oidc_idp_name}",
+      "login_oidc": "SSO login"
     },
     "main": {
       "about": "درباره",

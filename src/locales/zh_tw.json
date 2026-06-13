@@ -322,7 +322,9 @@
       "wrong_fido_challenge": "",
       "login_server_failed": "",
       "login_with_saml": "",
-      "login_saml": ""
+      "login_saml": "",
+      "login_with_oidc": "SSO login with {oidc_idp_name}",
+      "login_oidc": "SSO login"
     },
     "main": {
       "about": "關於",

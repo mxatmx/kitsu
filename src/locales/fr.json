@@ -322,7 +322,9 @@
       "wrong_fido_challenge": "La vérification du challenge FIDO a échoué.",
       "login_server_failed": "Une erreur de serveur s'est produite lors de la connexion.",
       "login_with_saml": "Connexion SSO avec {saml_idp_name}",
-      "login_saml": "Connexion SSO"
+      "login_saml": "Connexion SSO",
+      "login_with_oidc": "SSO login with {oidc_idp_name}",
+      "login_oidc": "SSO login"
     },
     "main": {
       "about": "À propos",

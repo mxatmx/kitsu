@@ -322,7 +322,9 @@
       "wrong_fido_challenge": "FIDO 挑战验证失败。",
       "login_server_failed": "登录时发生服务器错误。",
       "login_with_saml": "使用 {saml_idp_name} 进行 SSO 登录",
-      "login_saml": "SSO 登录"
+      "login_saml": "SSO 登录",
+      "login_with_oidc": "SSO login with {oidc_idp_name}",
+      "login_oidc": "SSO login"
     },
     "main": {
       "about": "关于",

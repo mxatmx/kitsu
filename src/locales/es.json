@@ -322,7 +322,9 @@
       "wrong_fido_challenge": "Ha fallado la verificación del reto FIDO.",
       "login_server_failed": "Se ha producido un error en el servidor al iniciar sesión.",
       "login_with_saml": "Inicio de sesión SSO con {saml_idp_name}",
-      "login_saml": "Inicio de sesión SSO"
+      "login_saml": "Inicio de sesión SSO",
+      "login_with_oidc": "SSO login with {oidc_idp_name}",
+      "login_oidc": "SSO login"
     },
     "main": {
       "about": "Acerca de",
