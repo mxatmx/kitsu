@@ -322,7 +322,9 @@
       "wrong_fido_challenge": "FIDO-udfordringsverifikation mislykkedes.",
       "login_server_failed": "Der opstod en serverfejl under login.",
       "login_with_saml": "SSO-login med {saml_idp_name}.",
-      "login_saml": "SSO-login"
+      "login_saml": "SSO-login",
+      "login_with_oidc": "SSO login with {oidc_idp_name}",
+      "login_oidc": "SSO login"
     },
     "main": {
       "about": "Om",
