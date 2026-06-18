@@ -1600,7 +1600,8 @@ export default {
     },
     entities: 'Entities',
     all_entities: 'All',
-    selected: 'selected'
+    selected: 'selected',
+    confirm_move_children: 'Moving this bar will clip or snap {count} sub-item(s) to fit the new bounds. Continue?'
   },
 
   team_schedule: {
