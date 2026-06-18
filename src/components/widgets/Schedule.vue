@@ -1483,6 +1483,9 @@ export default {
               item.startDate = item.startDate.clone().add(dateDiff)
               item.endDate = item.endDate.clone().add(dateDiff)
             })
+            this.selection.forEach(item => {
+              this.propagateClipToChildren(item)
+            })
             if (this.multiline || this.subchildren) {
               const parentElements = [
                 ...new Set(this.selection.map(item => item.parentElement))
@@ -1538,6 +1541,7 @@ export default {
       ) {
         this.currentElement.startDate = newStartDate.clone()
         this.updateItemEstimation(this.currentElement)
+        this.propagateClipToChildren(this.currentElement)
         this.refreshItemPositions(this.currentElement.parentElement)
         this.resetSelection([this.currentElement])
       }
@@ -1593,9 +1597,42 @@ export default {
       ) {
         this.currentElement.endDate = newEndDate.clone()
         this.updateItemEstimation(this.currentElement)
+        this.propagateClipToChildren(this.currentElement)
         this.refreshItemPositions(this.currentElement.parentElement)
         this.resetSelection([this.currentElement])
       }
+    },
+
+    propagateClipToChildren(item) {
+      if (item.parentElement || !Array.isArray(item.children)) return
+      const newStart = item.startDate
+      const newEnd = item.endDate
+      item.children.forEach(child => {
+        const origStart = child._dragOrigStartDate
+        const origEnd = child._dragOrigEndDate
+        if (!origStart || !origEnd) return
+
+        // restore from orig before applying clip to prevent drift on back-drag
+        child.startDate = origStart.clone()
+        child.endDate = origEnd.clone()
+
+        if (origEnd.isSameOrBefore(newStart)) {
+          // entirely before new start: snap to 1-day bar at start
+          child.startDate = newStart.clone()
+          child.endDate = newStart.clone().add(1, 'days')
+        } else if (origStart.isBefore(newStart)) {
+          // overlaps start: clip start
+          child.startDate = newStart.clone()
+        } else if (origStart.isSameOrAfter(newEnd)) {
+          // entirely after new end: snap to 1-day bar at end
+          child.startDate = newEnd.clone().subtract(1, 'days')
+          child.endDate = newEnd.clone()
+        } else if (origEnd.isAfter(newEnd)) {
+          // overlaps end: clip end
+          child.endDate = newEnd.clone()
+        }
+        // else: child fully inside new bounds — already restored, leave untouched
+      })
     },
 
     updateItemEstimation(item) {
