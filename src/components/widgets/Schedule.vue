@@ -1668,6 +1668,14 @@ export default {
           ? 'all-scroll'
           : 'ew-resize'
 
+        timeElement._dragOrigStartDate = timeElement.startDate.clone()
+        timeElement._dragOrigEndDate = timeElement.endDate.clone()
+        if (!timeElement.parentElement && Array.isArray(timeElement.children)) {
+          timeElement.children.forEach(child => {
+            child._dragOrigStartDate = child.startDate.clone()
+            child._dragOrigEndDate = child.endDate.clone()
+          })
+        }
         this.updateSelection(timeElement, event)
       }
     },
@@ -1691,6 +1699,14 @@ export default {
         this.initialClientX = this.getClientX(event)
         document.body.style.cursor = 'w-resize'
 
+        timeElement._dragOrigStartDate = timeElement.startDate.clone()
+        timeElement._dragOrigEndDate = timeElement.endDate.clone()
+        if (!timeElement.parentElement && Array.isArray(timeElement.children)) {
+          timeElement.children.forEach(child => {
+            child._dragOrigStartDate = child.startDate.clone()
+            child._dragOrigEndDate = child.endDate.clone()
+          })
+        }
         this.updateSelection(timeElement, event)
       }
     },
@@ -1714,6 +1730,14 @@ export default {
         this.initialClientX = this.getClientX(event)
         document.body.style.cursor = 'e-resize'
 
+        timeElement._dragOrigStartDate = timeElement.startDate.clone()
+        timeElement._dragOrigEndDate = timeElement.endDate.clone()
+        if (!timeElement.parentElement && Array.isArray(timeElement.children)) {
+          timeElement.children.forEach(child => {
+            child._dragOrigStartDate = child.startDate.clone()
+            child._dragOrigEndDate = child.endDate.clone()
+          })
+        }
         this.updateSelection(timeElement, event)
       }
     },
