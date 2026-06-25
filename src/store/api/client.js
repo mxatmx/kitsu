@@ -1,68 +1,35 @@
 import superagent from 'superagent'
 import errors from '@/lib/errors'
 
+function handleResponse(res) {
+  return res?.body
+}
+
+function handleError(err) {
+  if (err?.response?.status === 401) {
+    errors.backToLogin()
+    // Propagate the unauthorized error by throwing so the promise chain
+    // rejects and callers can react, instead of freezing it forever.
+    throw new Error('Unauthorized')
+  }
+  err.body = err?.response?.body || ''
+  throw err
+}
+
 const client = {
-  get(path, callback) {
-    superagent.get(path).end((err, res) => {
-      if (res?.statusCode === 401) return errors.backToLogin()
-      callback(err, res?.body)
-    })
-  },
-
-  post(path, data, callback) {
-    superagent
-      .post(path)
+  request(method, path, data) {
+    return superagent(method, path)
       .send(data)
-      .end((err, res) => {
-        if (res?.statusCode === 401) return errors.backToLogin()
-        callback(err, res?.body)
-      })
-  },
-
-  put(path, data, callback) {
-    superagent
-      .put(path)
-      .send(data)
-      .end((err, res) => {
-        if (res?.statusCode === 401) return errors.backToLogin()
-        callback(err, res?.body)
-      })
-  },
-
-  del(path, callback) {
-    superagent.del(path).end((err, res) => {
-      if (res?.statusCode === 401) return errors.backToLogin()
-      callback(err, res?.body)
-    })
+      .then(handleResponse)
+      .catch(handleError)
   },
 
   pget(path) {
-    return superagent.get(path).then(res => {
-      if (res?.statusCode === 401) {
-        errors.backToLogin()
-        throw new Error('Unauthorized')
-      }
-      return res?.body
-    })
+    return client.request('GET', path)
   },
 
   ppost(path, data) {
-    return new Promise((resolve, reject) => {
-      superagent
-        .post(path)
-        .send(data)
-        .end((err, res) => {
-          if (res?.statusCode === 401) {
-            errors.backToLogin()
-            return reject(err)
-          } else {
-            if (err) {
-              err.body = res ? res.body : ''
-              return reject(err)
-            } else return resolve(res?.body)
-          }
-        })
-    })
+    return client.request('POST', path, data)
   },
 
   ppostFile(path, data) {
@@ -70,58 +37,22 @@ const client = {
       .post(path)
       .send(data)
       .on('progress', e => e)
-    return {
-      request,
-      promise: new Promise((resolve, reject) => {
-        request.end((err, res) => {
-          if (res?.statusCode === 401) {
-            errors.backToLogin()
-            return reject(err)
-          } else {
-            if (err) return reject(err)
-            else return resolve(res?.body)
-          }
-        })
-      })
-    }
+    const promise = request.then(handleResponse).catch(handleError)
+    return { request, promise }
   },
 
   pput(path, data) {
-    return new Promise((resolve, reject) => {
-      superagent
-        .put(path)
-        .send(data)
-        .end((err, res) => {
-          if (res?.statusCode === 401) {
-            errors.backToLogin()
-            reject(err)
-          } else {
-            if (err) {
-              err.body = res ? res.body : ''
-              return reject(err)
-            } else return resolve(res?.body)
-          }
-        })
-    })
+    return client.request('PUT', path, data)
   },
 
   pdel(path, data) {
-    return new Promise((resolve, reject) => {
-      superagent
-        .del(path)
-        .send(data)
-        .end((err, res) => {
-          if (res?.statusCode === 401) {
-            errors.backToLogin()
-            reject(err)
-          } else {
-            if (err) {
-              err.body = res ? res.body : ''
-              return reject(err)
-            } else return resolve(res?.body)
-          }
-        })
-    })
+    return client.request('DELETE', path, data)
+  },
+
+  getText(path) {
+    return superagent('GET', path)
+      .then(res => res.text)
+      .catch(handleError)
   },
 
   getConfig() {
@@ -135,15 +66,26 @@ const client = {
     return client.pget(path)
   },
 
-  getEvents(after, before) {
-    const path = `/api/data/events/last?after=${after}&before=${before}&limit=100000`
+  getEvents(after, before, limit, lastEventId = null) {
+    let path = `/api/data/events/last?after=${after}&before=${before}&limit=${limit}`
+    if (lastEventId) {
+      path += `&cursor_event_id=${lastEventId}`
+    }
+    return client.pget(path)
+  },
+
+  getLoginLogs(after, before, limit, lastLoginLogId = null) {
+    let path = `/api/data/events/login-logs/last?limit=${limit}`
+    if (after) path += `&after=${after}`
+    if (before) path += `&before=${before}`
+    if (lastLoginLogId) path += `&cursor_login_log_id=${lastLoginLogId}`
     return client.pget(path)
   },
 
   searchData(query, limit, offset, index_names, productionId) {
     const path = '/api/data/search'
     const data = { query, limit, offset, index_names }
-    if (productionId !== 'all') data.project_id = productionId
+    if (productionId && productionId !== 'all') data.project_id = productionId
     return client.ppost(path, data)
   }
 }

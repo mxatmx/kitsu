@@ -16,7 +16,7 @@
       <table-metadata-header-menu
         ref="headerMetadataMenu"
         :is-edit-allowed="isCurrentUserManager"
-        :is-sticked="stickedColumns[lastMetadaDataHeaderMenuDisplayed]"
+        :is-sticked="stickedColumns[lastMetadataHeaderMenuDisplayed]"
         @edit-clicked="onEditMetadataClicked()"
         @delete-clicked="onDeleteMetadataClicked()"
         @sort-by-clicked="onSortByMetadataClicked()"
@@ -60,9 +60,6 @@
                   offsets['editor-' + j] ? `${offsets['editor-' + j]}px` : '0'
                 "
                 is-stick
-                :style="{
-                  'z-index': 1001
-                }"
                 @show-metadata-header-menu="
                   event => showMetadataHeaderMenu(descriptor.id, event)
                 "
@@ -189,7 +186,7 @@
                 }"
                 namespace="sequences"
                 v-model="metadataDisplayHeaders"
-                v-show="columnSelectorDisplayed"
+                v-model:is-open="columnSelectorDisplayed"
                 v-if="displaySettings.showInfos"
               />
 
@@ -238,9 +235,13 @@
                     tabindex="-1"
                     :title="sequence.name"
                     :to="sequencePath(sequence.id)"
+                    v-if="!isCurrentUserClient"
                   >
                     {{ sequence.name }}
                   </router-link>
+                  <template v-else>
+                    {{ sequence.name }}
+                  </template>
                 </div>
               </th>
 
@@ -445,7 +446,7 @@
       </table>
     </div>
 
-    <table-info :is-loading="isLoading" :is-error="isError" />
+    <table-info :is-loading="isLoading" :is-error="isError" big-cells />
 
     <div
       class="has-text-centered"
@@ -562,7 +563,7 @@ export default {
       type: 'sequence',
       hiddenColumns: {},
       lastHeaderMenuDisplayed: null,
-      lastMetadaDataHeaderMenuDisplayed: null,
+      lastMetadataHeaderMenuDisplayed: null,
       lastHeaderMenuDisplayedIndexInGrid: null,
       lastSelectedSequence: null,
       lastSelection: null,
@@ -647,33 +648,6 @@ export default {
       )
     },
 
-    visibleColumns() {
-      let count = 2
-      count +=
-        !this.isCurrentUserClient &&
-        this.displaySettings.showInfos &&
-        this.isSequenceDescription
-          ? 1
-          : 0
-      count += this.visibleMetadataDescriptors.length
-      count +=
-        !this.isCurrentUserClient &&
-        this.displaySettings.showInfos &&
-        this.isSequenceTime &&
-        this.metadataDisplayHeaders.timeSpent
-          ? 1
-          : 0
-      count +=
-        !this.isCurrentUserClient &&
-        this.displaySettings.showInfos &&
-        this.isSequenceEstimation &&
-        this.metadataDisplayHeaders.estimation
-          ? 1
-          : 0
-      count += this.displayedValidationColumns.length
-      return count
-    },
-
     displayedValidationColumns() {
       return this.validationColumns.filter(columnId => {
         return (
@@ -696,10 +670,7 @@ export default {
     ...mapActions(['setSequenceSelection']),
 
     isSelected(lineIndex, columnIndex) {
-      return (
-        this.sequenceSelectionGrid[lineIndex] &&
-        this.sequenceSelectionGrid[lineIndex][columnIndex]
-      )
+      return this.sequenceSelectionGrid.has(`${lineIndex}-${columnIndex}`)
     },
 
     sequencePath(sequenceId) {
@@ -775,7 +746,7 @@ th.actions {
   color: inherit;
 }
 
-.name.sequence-name {
+thead .name.sequence-name {
   min-width: 110px;
   width: 110px;
 }
@@ -829,10 +800,6 @@ span.thumbnail-empty {
   padding: 6px;
 }
 
-.datatable-row-header {
-  cursor: pointer;
-}
-
 th .input-editor,
 td .input-editor {
   color: $grey-strong;
@@ -878,7 +845,6 @@ input[type='number'] {
 
 td.metadata-descriptor {
   height: 3.1rem;
-  max-width: 120px;
   padding: 0;
 }
 
@@ -923,6 +889,6 @@ td .select {
 }
 
 .metadata-value {
-  padding: 0.8rem;
+  padding: 0.5rem 0.75rem;
 }
 </style>

@@ -123,11 +123,10 @@
                 >
                   <td class="field-label">{{ descriptor.name }}</td>
                   <td>
-                    {{
-                      currentAsset.data
-                        ? currentAsset.data[descriptor.field_name]
-                        : ''
-                    }}
+                    <metadata-value
+                      :descriptor="descriptor"
+                      :entity="currentAsset"
+                    />
                   </td>
                 </tr>
               </tbody>
@@ -142,20 +141,14 @@
         />
 
         <div class="asset-casted-in" v-show="currentSection === 'casting'">
-          <div v-if="currentAsset">
-            <div
-              v-if="
-                currentAsset.castInShotsBySequence &&
-                currentAsset.castInShotsBySequence[0].length > 0
-              "
-            >
+          <template v-if="currentAsset">
+            <div v-if="currentAsset.castInShotsBySequence?.[0]?.length > 0">
               <em>{{
                 $t('assets.casted_in_shots', { nbShots: nbShotsCastedIn })
               }}</em>
               <template
                 v-if="
-                  currentAsset.castInShotsBySequence.length > 0 &&
-                  currentAsset.castInShotsBySequence[0][0].sequence_name
+                  currentAsset.castInShotsBySequence?.[0]?.[0]?.sequence_name
                 "
               >
                 <div
@@ -203,15 +196,11 @@
             </div>
             <div
               class="mt1"
-              v-if="
-                currentAsset &&
-                currentAsset.castingAssetsByType &&
-                currentAsset.castingAssetsByType[0]?.length === 0
-              "
+              v-else-if="currentAsset.castingAssetsByType?.[0]?.length === 0"
             >
               {{ $t('assets.no_cast_in') }}
             </div>
-          </div>
+          </template>
           <table-info
             :is-loading="castIn.isLoading"
             :is-error="castIn.isError"
@@ -220,18 +209,11 @@
 
           <div
             v-if="
-              currentAsset &&
-              currentAsset.castingAssetsByType &&
-              currentAsset.castingAssetsByType[0].length > 0
+              currentAsset && currentAsset.castingAssetsByType?.[0]?.length > 0
             "
           >
             <page-subtitle :text="$t('assets.linked')" />
-            <div
-              v-if="
-                currentAsset.castingAssetsByType &&
-                currentAsset.castingAssetsByType[0].length > 0
-              "
-            >
+            <template v-if="currentAsset.castingAssetsByType?.[0]?.length > 0">
               <div
                 class="type-assets"
                 :key="
@@ -275,7 +257,7 @@
                   </router-link>
                 </div>
               </div>
-            </div>
+            </template>
           </div>
         </div>
 
@@ -394,6 +376,7 @@ import EntityPreviewFiles from '@/components/pages/entities/EntityPreviewFiles.v
 import EntityTimeLogs from '@/components/pages/entities/EntityTimeLogs.vue'
 import EntityTaskList from '@/components/lists/EntityTaskList.vue'
 import EntityThumbnail from '@/components/widgets/EntityThumbnail.vue'
+import MetadataValue from '@/components/widgets/MetadataValue.vue'
 import PageSubtitle from '@/components/widgets/PageSubtitle.vue'
 import RouteSectionTabs from '@/components/widgets/RouteSectionTabs.vue'
 import Schedule from '@/components/widgets/Schedule.vue'
@@ -423,6 +406,7 @@ export default {
     EntityThumbnail,
     EntityTaskList,
     EntityTimeLogs,
+    MetadataValue,
     PageSubtitle,
     RouteSectionTabs,
     Schedule,
@@ -599,6 +583,7 @@ export default {
           if (assetId) {
             return this.loadAsset(assetId).then(() => {
               asset = assetStore.cache.assetMap.get(assetId)
+              if (!asset) return resolve(null)
               this.localTasks = asset.tasks
                 .map(taskId => this.taskMap.get(taskId))
                 .filter(Boolean)

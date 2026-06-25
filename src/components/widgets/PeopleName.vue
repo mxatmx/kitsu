@@ -7,30 +7,34 @@
         person_id: person.id
       }
     }"
-    :title="person.full_name"
+    :title="displayName"
     v-if="person?.id && withLink"
   >
-    {{ person.full_name }}
+    {{ displayName }}
   </router-link>
   <span class="person-name" v-else-if="person">
-    {{ person.full_name }}
+    {{ displayName }}
   </span>
 </template>
 
-<script>
-export default {
-  name: 'people-name',
-  props: {
-    person: {
-      type: Object,
-      required: true
-    },
-    withLink: {
-      type: Boolean,
-      default: false
-    }
+<script setup>
+import { computed } from 'vue'
+
+const props = defineProps({
+  person: {
+    type: Object,
+    required: true
+  },
+  withLink: {
+    type: Boolean,
+    default: false
   }
-}
+})
+
+// full_name is embedded by the API; name is the client-computed fallback.
+const displayName = computed(
+  () => props.person?.full_name || props.person?.name || undefined
+)
 </script>
 
 <style lang="scss" scoped>

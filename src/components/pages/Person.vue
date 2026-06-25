@@ -24,7 +24,7 @@
             :tabs="todoTabs"
           />
 
-          <div ref="search" class="flexrow" v-show="!isActiveTab('calendar')">
+          <div class="flexrow">
             <search-field
               ref="person-tasks-search-field"
               class="search-field flexrow-item"
@@ -109,16 +109,19 @@
             :done-tasks="loggableDoneTasks"
             :is-loading="isTasksLoading"
             :is-error="isTasksLoadingError"
+            :days-off="daysOff"
             :day-off-error="dayOffError"
             :time-spent-map="personTimeSpentMap"
             :time-spent-total="personTimeSpentTotal"
-            :hide-done="false"
             :hide-day-off="!(isCurrentUserAdmin || user.id === person.id)"
             @date-changed="onDateChanged"
             @time-spent-change="onTimeSpentChange"
             @set-day-off="onSetDayOff"
             @unset-day-off="onUnsetDayOff"
-            v-else-if="isActiveTab('timesheets') && isCurrentUserManager"
+            v-else-if="
+              isActiveTab('timesheets') &&
+              (isCurrentUserManager || user.id === person.id)
+            "
           />
 
           <person-equipment
@@ -250,18 +253,15 @@ export default {
     }
   },
 
-  mounted() {
+  async mounted() {
     this.productionId = this.$route.query.productionId || undefined
 
     this.updateActiveTab()
-    this.loadPerson(this.$route.params.person_id)
-    setTimeout(() => {
-      this.searchField?.focus()
-      this.$refs['schedule-widget']?.scrollToDate(this.tasksStartDate)
-    }, 300)
-
+    await this.loadPerson(this.$route.params.person_id)
     this.setSearchFromUrl()
     this.onSearchChange()
+
+    this.$refs['schedule-widget']?.scrollToDate(this.tasksStartDate)
 
     this.init = true
   },
@@ -280,8 +280,10 @@ export default {
       'displayedPersonDoneTasks',
       'getProductionTaskStatuses',
       'isCurrentUserAdmin',
+      'isCurrentUserClient',
       'isCurrentUserManager',
       'isCurrentUserSupervisor',
+      'isCurrentUserVendor',
       'nbSelectedTasks',
       'personMap',
       'personTasksScrollPosition',
@@ -298,16 +300,10 @@ export default {
     ]),
 
     isCurrentUserAllowed() {
-      if (this.isCurrentUserManager || this.user.id === this.person.id) {
-        return true
-      }
-      if (this.isCurrentUserSupervisor) {
-        const isSupervisorInDepartments = this.user.departments.some(
-          department => this.person.departments.includes(department)
-        )
-        return isSupervisorInDepartments
-      }
-      return false
+      return (
+        this.user.id === this.person.id ||
+        !(this.isCurrentUserClient || this.isCurrentUserVendor)
+      )
     },
 
     loggablePersonTasks() {
@@ -699,11 +695,13 @@ export default {
         this.isTasksLoadingError = true
       }
 
-      try {
-        this.daysOff = await this.loadAggregatedPersonDaysOff({ personId })
-      } catch (error) {
-        console.error(error)
-      }
+      this.loadDaysOff()
+    },
+
+    async loadDaysOff() {
+      this.daysOff = await this.loadAggregatedPersonDaysOff({
+        personId: this.person.id
+      }).catch(() => [])
     },
 
     async loadTimeSpents() {
@@ -754,21 +752,19 @@ export default {
         ? currentSection
         : 'todos'
 
-      if (this.activeTab === 'board') {
-        const currentProduction = this.userOpenProductions.find(
-          ({ id }) => id === this.$route.query.productionId
-        )
-        if (currentProduction) {
-          this.productionId = currentProduction.id
-        } else {
-          this.$router.push({
-            query: {
-              productionId: this.productionId,
-              section: this.activeTab,
-              search: this.$route.query.search
-            }
-          })
-        }
+      const currentProduction = this.userOpenProductions.find(
+        ({ id }) => id === this.$route.query.productionId
+      )
+      if (currentProduction) {
+        this.productionId = currentProduction.id
+      } else {
+        this.$router.push({
+          query: {
+            ...this.$route.query,
+            productionId: this.productionId,
+            section: this.activeTab
+          }
+        })
       }
 
       this.clearSelectedTasks()
@@ -796,16 +792,18 @@ export default {
       } catch (error) {
         this.dayOffError = error.body?.message || true
       }
+      await this.loadDaysOff()
     },
 
-    async onUnsetDayOff() {
+    async onUnsetDayOff(dayOff) {
       this.dayOffError = false
       try {
-        await this.unsetDayOff()
+        await this.unsetDayOff(dayOff)
         this.$refs['timesheet-list']?.closeUnsetDayOffModal()
       } catch (error) {
         this.dayOffError = error.body?.message || true
       }
+      await this.loadDaysOff()
     },
 
     saveTaskScheduleItem(item) {

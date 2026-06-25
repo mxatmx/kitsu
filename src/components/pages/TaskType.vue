@@ -14,13 +14,12 @@
               :task-type="currentTaskType"
             />
             <div class="filler"></div>
-            <button-simple
+            <combobox-display-options
               class="flexrow-item"
-              icon="grid"
-              :is-on="contactSheetMode"
-              :title="$t('tasks.show_contact_sheet')"
-              @click="toggleContactSheetMode()"
-              v-if="isActiveTab('tasks')"
+              :has-linked-assets="isTVShow"
+              :is-all-episodes="currentEpisode?.id === 'all'"
+              :type="displayTaskType"
+              v-model="displaySettings"
             />
             <div
               class="flexrow-item"
@@ -116,6 +115,13 @@
                 locale-key-prefix="tasks."
                 v-model="priorityFilter"
               />
+              <combobox-styled
+                class="flexrow-item"
+                :label="$t('tasks.fields.retake_count')"
+                :options="retakeCountOptions"
+                locale-key-prefix="tasks."
+                v-model="retakeCountFilter"
+              />
             </div>
 
             <div
@@ -170,7 +176,7 @@
               is-medium
               :text="$t('schedule.title')"
               @click="toggleSchedule()"
-              v-if="isActiveTab('tasks') && !contactSheetMode"
+              v-if="isActiveTab('tasks') && !displaySettings.contactSheetMode"
             />
             <div class="flexrow-item" v-if="isActiveTab('tasks')">
               <combobox-styled
@@ -254,7 +260,7 @@
           ref="task-list"
           :disabled-dates="disabledDates"
           :entity-type="entityType"
-          :is-contact-sheet="contactSheetMode"
+          :is-contact-sheet="displaySettings.contactSheetMode"
           :is-error="errors.entities"
           :is-grouped="currentSort === 'entity_name'"
           :is-loading="loading.entities"
@@ -286,7 +292,7 @@
             @root-element-expanded="expandPersonElement"
             @estimation-changed="updateEstimation"
             @scroll="onScheduleScroll"
-            v-if="isScheduleVisible && !contactSheetMode"
+            v-if="isScheduleVisible && !displaySettings.contactSheetMode"
           />
         </task-list>
 
@@ -385,6 +391,7 @@ import { mapGetters, mapActions } from 'vuex'
 import csv from '@/lib/csv'
 import { buildSupervisorTaskIndex, indexSearch } from '@/lib/indexing'
 import { getPersonPath } from '@/lib/path'
+import preferences from '@/lib/preferences'
 import { sortByName, sortPeople } from '@/lib/sorting'
 import stringHelpers from '@/lib/string'
 import {
@@ -410,6 +417,7 @@ import ButtonSimple from '@/components/widgets/ButtonSimple.vue'
 import ComboboxNumber from '@/components/widgets/ComboboxNumber.vue'
 import ComboboxOptions from '@/components/widgets/ComboboxOptions.vue'
 import ComboboxStatus from '@/components/widgets/ComboboxStatus.vue'
+import ComboboxDisplayOptions from '@/components/widgets/ComboboxDisplayOptions.vue'
 import ComboboxStyled from '@/components/widgets/ComboboxStyled.vue'
 import ComboboxTaskType from '@/components/widgets/ComboboxTaskType.vue'
 import DateField from '@/components/widgets/DateField.vue'
@@ -531,6 +539,7 @@ export default {
 
   components: {
     ButtonSimple,
+    ComboboxDisplayOptions,
     CornerLeftUpIcon,
     ComboboxNumber,
     ComboboxOptions,
@@ -558,7 +567,10 @@ export default {
       currentSort: 'entity_name',
       currentScheduleItem: null,
       currentTask: null,
-      contactSheetMode: false,
+      displaySettings: {
+        contactSheetMode: false,
+        showLinkedAssets: true
+      },
       dataDisplay: {
         estimations: true,
         statuses: true,
@@ -593,6 +605,12 @@ export default {
       optionalColumns: ['Estimation', 'Start date', 'Due date', 'Difficulty'],
       parsedCSV: [],
       priorityFilter: '-1',
+      retakeCountFilter: 'all',
+      retakeCountOptions: [
+        { label: 'all_tasks', value: 'all' },
+        { label: 'retake_filter_none', value: 'none' },
+        { label: 'retake_filter_with_retakes', value: 'with_retakes' }
+      ],
       selection: {},
       tasks: [],
       taskStatusIdFilter: null,
@@ -683,6 +701,14 @@ export default {
       return
     }
 
+    this.displaySettings = {
+      ...this.displaySettings,
+      ...preferences.getObjectPreference('tasktype:display_settings')
+    }
+    this.dataDisplay = {
+      ...this.dataDisplay,
+      ...preferences.getObjectPreference('tasktype:data_display')
+    }
     this.setOptionalImportColumns()
     this.searchField?.setValue(this.$route.query.search || '')
     this.clearSelectedTasks()
@@ -741,6 +767,10 @@ export default {
       'user'
     ]),
 
+    isEpisodesSection() {
+      return this.$route.meta.section === 'episodes'
+    },
+
     taskStatusList() {
       return [
         {
@@ -749,6 +779,10 @@ export default {
           short_name: this.$t('news.all')
         }
       ].concat(sortByName([...this.productionTaskStatuses]))
+    },
+
+    displayTaskType() {
+      return 'tasktype-' + this.entityType.toLowerCase()
     },
 
     taskTypeList() {
@@ -973,9 +1007,9 @@ export default {
 
     team() {
       return sortPeople(
-        this.currentProduction.team
+        this.currentProduction?.team
           .map(personId => this.personMap.get(personId))
-          .filter(person => person && !person.is_bot)
+          .filter(person => person && !person.is_bot) ?? []
       )
     },
 
@@ -1037,12 +1071,16 @@ export default {
               this.setSearchFromUrl()
               this.resetTaskTypeDates()
             }, 200)
+            if (this.dataDisplay.beforeAfterTasks) {
+              this.setDefaultBeforeAfterTaskTypes()
+            }
             this.resetScheduleItems(true)
 
             this.dueDateFilter = this.$route.query.duedate || 'all'
             this.estimationFilter = this.$route.query.late || 'all'
             this.priorityFilter = this.$route.query.priority || '-1'
             this.difficultyFilter = this.$route.query.difficulty || '-1'
+            this.retakeCountFilter = this.$route.query.retake_count || 'all'
             this.taskStatusIdFilter = this.$route.query.task_status_id || ''
 
             const taskId = this.$route.query.task_id
@@ -1069,6 +1107,9 @@ export default {
             searchQuery = this.searchField.getValue()
           }
           if (searchQuery) this.onSearchChange(searchQuery)
+          if (this.dataDisplay.beforeAfterTasks) {
+            this.setDefaultBeforeAfterTaskTypes()
+          }
           this.resetScheduleItems(true)
         })
       }
@@ -1154,7 +1195,7 @@ export default {
           descFilters.length > 0 ||
           taskFilters.length > 0
         ) {
-          let tasks = []
+          let tasks
           const filters = taskFilters.concat(descFilters)
           if (keywords.length > 0) {
             tasks = indexSearch(this.$options.taskIndex, keywords)
@@ -1194,6 +1235,11 @@ export default {
           t => t.difficulty === parseInt(this.difficultyFilter)
         )
       }
+      if (this.retakeCountFilter === 'none') {
+        this.tasks = this.tasks.filter(t => !(t.retake_count > 0))
+      } else if (this.retakeCountFilter === 'with_retakes') {
+        this.tasks = this.tasks.filter(t => t.retake_count > 0)
+      }
       if (this.taskStatusIdFilter !== null && this.taskStatusIdFilter !== '') {
         this.tasks = this.tasks.filter(
           t => t.task_status_id === this.taskStatusIdFilter
@@ -1224,6 +1270,7 @@ export default {
       const late = this.estimationFilter
       const priority = this.priorityFilter
       const difficulty = this.difficultyFilter
+      const retakeCount = this.retakeCountFilter
       const taskStatusId = this.taskStatusIdFilter || null
       this.$router.push({
         query: {
@@ -1232,6 +1279,7 @@ export default {
           late,
           priority,
           difficulty,
+          retake_count: retakeCount === 'all' ? undefined : retakeCount,
           task_status_id: taskStatusId
         }
       })
@@ -1258,11 +1306,6 @@ export default {
 
     onScheduleScroll({ top }) {
       this.$refs['task-list']?.setScrollPosition(top)
-    },
-
-    toggleContactSheetMode() {
-      this.contactSheetMode = !this.contactSheetMode
-      this.isScheduleVisible = false
     },
 
     toggleSchedule() {
@@ -1323,6 +1366,8 @@ export default {
           entity.canceled ||
           !entity.tasks?.length ||
           (this.isTVShow &&
+            !this.displaySettings.showLinkedAssets &&
+            !this.isEpisodesSection &&
             !['all', entity.episode_id || 'main'].includes(
               this.currentEpisode?.id
             ))
@@ -1427,13 +1472,17 @@ export default {
       }
 
       if (item.key === 'beforeAfterTasks' && item.value) {
-        if (!this.schedule.taskTypeBefore) {
-          this.schedule.taskTypeBefore = this.taskTypeListBeforeFilter[1]?.id
-        }
-        if (!this.schedule.taskTypeAfter) {
-          this.schedule.taskTypeAfter = this.taskTypeListAfterFilter[1]?.id
-        }
+        this.setDefaultBeforeAfterTaskTypes()
         this.resetScheduleItems()
+      }
+    },
+
+    setDefaultBeforeAfterTaskTypes() {
+      if (!this.schedule.taskTypeBefore) {
+        this.schedule.taskTypeBefore = this.taskTypeListBeforeFilter[1]?.id
+      }
+      if (!this.schedule.taskTypeAfter) {
+        this.schedule.taskTypeAfter = this.taskTypeListAfterFilter[1]?.id
       }
     },
 
@@ -1900,7 +1949,7 @@ export default {
       this.errors.importingError = null
       this.hideImportRenderModal()
       this.importCsvFormData = undefined
-      this.$refs['import-modal'].reset()
+      this.$refs['import-modal']?.reset()
       this.showImportModal()
     },
 
@@ -1979,6 +2028,31 @@ export default {
       this.updateActiveTab()
     },
 
+    'displaySettings.contactSheetMode'() {
+      this.isScheduleVisible = false
+    },
+
+    'displaySettings.showLinkedAssets'() {
+      this.resetTasks()
+    },
+
+    displaySettings: {
+      deep: true,
+      handler(newSettings) {
+        preferences.setObjectPreference(
+          'tasktype:display_settings',
+          newSettings
+        )
+      }
+    },
+
+    dataDisplay: {
+      deep: true,
+      handler(newSettings) {
+        preferences.setObjectPreference('tasktype:data_display', newSettings)
+      }
+    },
+
     '$route.query.search'() {
       const currentSearch = this.searchField.getValue()
       const routeSearch = this.$route.query.search
@@ -2025,6 +2099,10 @@ export default {
     },
 
     taskStatusIdFilter() {
+      this.applyTaskFilters()
+    },
+
+    retakeCountFilter() {
       this.applyTaskFilters()
     },
 

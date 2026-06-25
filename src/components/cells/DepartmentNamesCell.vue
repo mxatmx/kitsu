@@ -1,46 +1,34 @@
 <template>
-  <td class="departments">
-    <span
-      class="departments-element"
-      :key="'department-' + department.id"
-      v-for="department in sortDepartments(departments)"
-    >
-      <department-name :department="department" v-if="department" />
-    </span>
+  <td>
+    <department-name
+      :key="department.id"
+      :department="department"
+      v-for="department in sortedDepartments"
+    />
   </td>
 </template>
 
-<script>
-import { mapGetters } from 'vuex'
+<script setup>
+import { computed } from 'vue'
+import { useStore } from 'vuex'
 
 import { sortByName } from '@/lib/sorting'
 
 import DepartmentName from '@/components/widgets/DepartmentName.vue'
 
-export default {
-  name: 'department-names-cell',
+const store = useStore()
 
-  components: {
-    DepartmentName
-  },
+const props = defineProps({
+  departments: { type: Array, default: () => [] }
+})
 
-  props: {
-    departments: {
-      type: Array,
-      default: () => []
-    }
-  },
+const departmentMap = computed(() => store.getters.departmentMap)
 
-  computed: {
-    ...mapGetters(['departmentMap'])
-  },
-
-  methods: {
-    sortDepartments(departmentIds = []) {
-      return sortByName(
-        departmentIds.map(departmentId => this.departmentMap.get(departmentId))
-      )
-    }
-  }
-}
+const sortedDepartments = computed(() =>
+  sortByName(
+    props.departments
+      .map(departmentId => departmentMap.value.get(departmentId))
+      .filter(Boolean)
+  )
+)
 </script>

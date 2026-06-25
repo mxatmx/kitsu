@@ -142,7 +142,12 @@
           {{ $t('main.load_more') }}
         </button>
       </div>
-      <table-info :is-loading="isLoading" :is-error="isError" />
+      <table-info
+        :is-loading="isLoading"
+        :is-error="isError"
+        :cells="10"
+        :with-actions="false"
+      />
     </div>
     <p class="has-text-centered nb-tasks" v-if="!isLoading">
       {{ stats.total }}
@@ -318,11 +323,11 @@ export default {
       if (this.tasks.length > 0 && event.altKey) {
         let index = this.lastSelection ? this.lastSelection : 0
         if ([37, 38].includes(event.keyCode)) {
-          index = index - 1 < 0 ? (index = this.tasks.length - 1) : index - 1
+          index = index - 1 < 0 ? this.tasks.length - 1 : index - 1
           this.selectTask({}, index, this.tasks[index])
           this.pauseEvent(event)
         } else if ([39, 40].includes(event.keyCode)) {
-          index = index + 1 >= this.tasks.length ? (index = 0) : index + 1
+          index = index + 1 >= this.tasks.length ? 0 : index + 1
           this.selectTask({}, index, this.tasks[index])
           this.pauseEvent(event)
         }

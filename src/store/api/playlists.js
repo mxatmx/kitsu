@@ -24,8 +24,16 @@ export default {
     return client.pget(path)
   },
 
-  getRunningPreviewFiles() {
-    return client.pget('/api/data/playlists/preview-files/running')
+  getPreviewFile(previewFileId) {
+    return client.pget(`/api/data/preview-files/${previewFileId}`)
+  },
+
+  getRunningPreviewFiles(limit, lastPreviewFileId = null) {
+    let path = `/api/data/playlists/preview-files/running?limit=${limit}`
+    if (lastPreviewFileId) {
+      path += `&cursor_preview_file_id=${lastPreviewFileId}`
+    }
+    return client.pget(path)
   },
 
   markPreviewFileAsBroken(previewFileId) {
@@ -90,11 +98,85 @@ export default {
     return client.ppost(path, { task_ids: taskIds })
   },
 
-  notifyClients(playlist, studioId) {
-    const data = { studio_id: studioId }
+  notifyClients(playlist, studioId, departmentId) {
+    const data = { studio_id: studioId, department_id: departmentId }
     return client.ppost(
       `/api/data/playlists/${playlist.id}/notify-clients`,
       data
+    )
+  },
+
+  getShareLinks(playlistId) {
+    return client.pget(`/api/data/playlists/${playlistId}/share`)
+  },
+
+  createShareLink(playlistId, data) {
+    return client.ppost(`/api/data/playlists/${playlistId}/share`, data)
+  },
+
+  revokeShareLink(playlistId, token) {
+    return client.pdel(`/api/data/playlists/${playlistId}/share/${token}`)
+  },
+
+  sendShareInvitations(playlistId, token, data) {
+    return client.ppost(
+      `/api/data/playlists/${playlistId}/share/${token}/invite`,
+      data
+    )
+  },
+
+  postSharedPlaylistGuest(shareToken, data) {
+    return client.ppost(`/api/shared/playlists/${shareToken}/guest`, data)
+  },
+
+  loadSharedPlaylist(shareToken) {
+    return client.pget(`/api/shared/playlists/${shareToken}`)
+  },
+
+  loadSharedPlaylistContext(shareToken) {
+    return client.pget(`/api/shared/playlists/${shareToken}/context`)
+  },
+
+  saveSharedPlaylistAnnotations(shareToken, data) {
+    return client.pput(`/api/shared/playlists/${shareToken}/annotations`, data)
+  },
+
+  loadSharedPlaylistComments(shareToken) {
+    return client.pget(`/api/shared/playlists/${shareToken}/comments`)
+  },
+
+  postSharedPlaylistComment(shareToken, data) {
+    return client.ppost(`/api/shared/playlists/${shareToken}/comments`, data)
+  },
+
+  editSharedPlaylistComment(shareToken, commentId, data) {
+    return client.pput(
+      `/api/shared/playlists/${shareToken}/comments/${commentId}`,
+      data
+    )
+  },
+
+  deleteSharedPlaylistComment(shareToken, commentId, guestId) {
+    return client.pdel(
+      `/api/shared/playlists/${shareToken}/comments/${commentId}?guest_id=${guestId}`
+    )
+  },
+
+  postSharedPlaylistCommentAttachments(shareToken, commentId, formData) {
+    return client.ppost(
+      `/api/shared/playlists/${shareToken}/comments/${commentId}/attachments`,
+      formData
+    )
+  },
+
+  deleteSharedPlaylistCommentAttachment(
+    shareToken,
+    commentId,
+    attachmentId,
+    guestId
+  ) {
+    return client.pdel(
+      `/api/shared/playlists/${shareToken}/comments/${commentId}/attachments/${attachmentId}?guest_id=${guestId}`
     )
   }
 }

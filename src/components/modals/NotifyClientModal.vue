@@ -10,35 +10,36 @@
 
     <combobox-studio
       class="mt1 mb1"
-      ref="studioField"
+      all-studios-label
       :label="$t('main.studio')"
-      :empty-choice-label="$t('playlists.all_studios')"
       v-model="form.studio_id"
     />
 
-    <p class="mb1 field-title" v-if="clients.length > 0">
-      {{ $t('playlists.clients_to_notify') }}
-    </p>
-    <p class="empty" v-else>
-      {{ $t('playlists.no_clients_to_notify') }}
-    </p>
+    <combobox-department
+      class="mt1 mb1"
+      all-departments-label
+      :label="$t('people.fields.departments')"
+      v-model="form.department_id"
+    />
 
-    <div class="flexcolumn">
-      <div :key="client.id" class="flexrow mb1" v-for="client in clients">
-        <people-avatar
-          class="flexrow-item"
-          :person="client"
-          :size="30"
-          :is-link="false"
-          v-if="client"
-        />
-        <people-name
-          class="flexrow-item"
-          :person="client"
-          :is-link="false"
-          v-if="client"
-        />
-      </div>
+    <div class="mt2">
+      <em v-if="!clients.length">
+        {{ $t('playlists.no_clients_to_notify') }}
+      </em>
+      <template v-else>
+        <label class="label mb1">
+          {{ $t('playlists.clients_to_notify') }}
+        </label>
+        <div :key="client.id" class="flexrow mb05" v-for="client in clients">
+          <people-avatar
+            class="flexrow-item"
+            :person="client"
+            :size="30"
+            :is-link="false"
+          />
+          <people-name class="flexrow-item" :person="client" :is-link="false" />
+        </div>
+      </template>
     </div>
 
     <modal-footer
@@ -53,97 +54,61 @@
   </base-modal>
 </template>
 
-<script>
-import { mapGetters } from 'vuex'
-
-import { modalMixin } from '@/components/modals/base_modal'
+<script setup>
+import { computed, ref } from 'vue'
+import { useStore } from 'vuex'
 
 import BaseModal from '@/components/modals/BaseModal.vue'
-import ComboboxStudio from '@/components/widgets/ComboboxStudio.vue'
 import ModalFooter from '@/components/modals/ModalFooter.vue'
-import PeopleAvatar from '../widgets/PeopleAvatar.vue'
-import PeopleName from '../widgets/PeopleName.vue'
+import ComboboxDepartment from '@/components/widgets/ComboboxDepartment.vue'
+import ComboboxStudio from '@/components/widgets/ComboboxStudio.vue'
+import PeopleAvatar from '@/components/widgets/PeopleAvatar.vue'
+import PeopleName from '@/components/widgets/PeopleName.vue'
 
-export default {
-  name: 'edit-budget-modal',
+const store = useStore()
 
-  mixins: [modalMixin],
+// Props / Emits
 
-  components: {
-    BaseModal,
-    ComboboxStudio,
-    ModalFooter,
-    PeopleAvatar,
-    PeopleName
-  },
+defineProps({
+  active: { type: Boolean, default: false },
+  isError: { type: Boolean, default: false },
+  isLoading: { type: Boolean, default: false },
+  isSuccess: { type: Boolean, default: false }
+})
 
-  props: {
-    active: {
-      type: Boolean,
-      default: false
-    },
-    playlist: {
-      type: Object,
-      default: () => {}
-    },
-    isError: {
-      type: Boolean,
-      default: false
-    },
-    isLoading: {
-      type: Boolean,
-      default: false
-    },
-    isSuccess: {
-      type: Boolean,
-      default: false
-    }
-  },
+const emit = defineEmits(['cancel', 'confirm'])
 
-  emits: ['cancel', 'confirm'],
+// State
 
-  data() {
-    return {
-      form: {
-        studio_id: ''
-      }
-    }
-  },
+const form = ref({ studio_id: '', department_id: '' })
 
-  computed: {
-    ...mapGetters(['currentProduction', 'personMap']),
+// Computed
 
-    clients() {
-      return this.currentProduction.team
-        .map(personId => this.personMap.get(personId))
-        .filter(person => person.role === 'client')
-        .filter(
-          person =>
-            !this.form.studio_id || person.studio_id === this.form.studio_id
-        )
-    }
-  },
+const currentProduction = computed(() => store.getters.currentProduction)
+const personMap = computed(() => store.getters.personMap)
 
-  methods: {
-    runConfirmation() {
-      this.$emit('confirm', {
-        studio_id: this.form.studio_id
-      })
-    }
-  }
+const clients = computed(() =>
+  currentProduction.value.team
+    .map(personId => personMap.value.get(personId))
+    .filter(person => person?.role === 'client')
+    .filter(
+      person =>
+        !form.value.studio_id || person.studio_id === form.value.studio_id
+    )
+    .filter(
+      person =>
+        !form.value.department_id ||
+        person.departments?.includes(form.value.department_id)
+    )
+    .sort((a, b) => (a.full_name || '').localeCompare(b.full_name || ''))
+)
+
+// Functions
+
+const runConfirmation = () => {
+  emit('confirm', {
+    studio_id: form.value.studio_id,
+    department_id: form.value.department_id
+  })
 }
 </script>
-
-<style lang="scss" scoped>
-.empty {
-  font-style: italic;
-}
-
-.field-title {
-  color: #eee;
-  font-size: 0.8rem;
-  font-weight: bold;
-  margin-top: 2em;
-  text-transform: uppercase;
-}
-</style>

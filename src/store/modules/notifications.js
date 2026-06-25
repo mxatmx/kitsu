@@ -40,7 +40,6 @@ const actions = {
     commit(LOAD_NOTIFICATIONS_END, [])
     return notificationsApi.getNotifications(params).then(notifications => {
       commit(LOAD_NOTIFICATIONS_END, notifications)
-      return Promise.resolve()
     })
   },
 
@@ -53,7 +52,7 @@ const actions = {
       params.before = state.notifications[lastNotification].created_at
       return notificationsApi.getNotifications(params).then(notifications => {
         commit(LOAD_MORE_NOTIFICATIONS_END, notifications)
-        return Promise.resolve(notifications)
+        return notifications
       })
     } else {
       return Promise.resolve([])
@@ -65,7 +64,7 @@ const actions = {
       .getNotification(notificationId)
       .then(notification => {
         commit(LOAD_NOTIFICATION_END, notification)
-        return Promise.resolve()
+        return notification
       })
   },
 
@@ -119,8 +118,13 @@ const mutations = {
   },
 
   [LOAD_NOTIFICATION_END](state, notification) {
-    state.notifications.push(notification)
-    state.notifications = sortByDate(state.notifications)
+    const idx = state.notifications.findIndex(n => n.id === notification.id)
+    if (idx !== -1) {
+      state.notifications.splice(idx, 1, notification)
+    } else {
+      state.notifications.push(notification)
+      state.notifications = sortByDate(state.notifications)
+    }
   },
 
   [SET_NOTIFICATION_COUNT](state, count) {

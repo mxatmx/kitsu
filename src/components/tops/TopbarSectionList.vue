@@ -11,10 +11,17 @@
           class="selected-section-line flexrow-item flexrow"
           v-if="currentSection"
         >
+          <icon
+            class="section-icon"
+            :name="currentSection.icon"
+            :size="20"
+            :stroke-width="1.5"
+            v-if="currentSection.type === 'plugin'"
+          />
           <kitsu-icon
             class="section-icon"
             :name="currentSection.value"
-            v-if="currentSection.value !== 'budget'"
+            v-else-if="currentSection.value !== 'budget'"
           />
           <hand-coins-icon
             class="section-icon"
@@ -35,7 +42,21 @@
           <router-link
             class="flexrow"
             :to="getSectionPath(section)"
-            v-if="section.value !== 'separator'"
+            v-if="section.type === 'plugin'"
+          >
+            <icon
+              class="section-icon"
+              :name="section.icon"
+              :size="20"
+              :stroke-width="1.5"
+              v-if="section.type === 'plugin'"
+            />
+            <span class="flexrow-item">{{ section.label }}</span>
+          </router-link>
+          <router-link
+            class="flexrow"
+            :to="getSectionPath(section)"
+            v-else-if="section.value !== 'separator'"
           >
             <kitsu-icon
               class="section-icon"
@@ -61,6 +82,7 @@
 
 <script>
 import { ChevronDownIcon, HandCoinsIcon } from 'lucide-vue-next'
+import { defineAsyncComponent } from 'vue'
 import { mapActions, mapGetters } from 'vuex'
 
 import { getProductionPath } from '@/lib/path'
@@ -68,14 +90,17 @@ import { getProductionPath } from '@/lib/path'
 import ComboboxMask from '@/components/widgets/ComboboxMask.vue'
 import KitsuIcon from '@/components/widgets/KitsuIcon.vue'
 
+const Icon = defineAsyncComponent(() => import('@/components/widgets/Icon.vue'))
+
 export default {
   name: 'topbar-section-list',
 
   components: {
     ChevronDownIcon,
     ComboboxMask,
-    KitsuIcon,
-    HandCoinsIcon
+    HandCoinsIcon,
+    Icon,
+    KitsuIcon
   },
 
   emits: ['input'],
@@ -107,7 +132,7 @@ export default {
   },
 
   computed: {
-    ...mapGetters(['currentProduction']),
+    ...mapGetters(['currentProduction', 'projectPlugins']),
 
     currentSection() {
       return this.sectionList.find(
@@ -135,7 +160,8 @@ export default {
       const result = getProductionPath(
         this.currentProduction,
         section.value,
-        this.episodeId
+        this.episodeId,
+        section.plugin_id
       )
       return result
     }
@@ -265,5 +291,13 @@ hr {
   cursor: pointer;
   margin-right: 0.8em;
   width: 20px;
+}
+
+svg.section-icon {
+  color: #515151;
+}
+
+.dark svg.section-icon {
+  color: #ffffff;
 }
 </style>

@@ -1,371 +1,295 @@
 <template>
-  <div
-    :class="{
-      modal: true,
-      'is-active': active
-    }"
-  >
-    <div class="modal-background" @click="$emit('cancel')"></div>
+  <base-modal :active="active" :title="modalTitle" @cancel="$emit('cancel')">
+    <form @submit.prevent>
+      <combobox
+        :label="$t('assets.fields.type')"
+        :options="productionAssetTypeOptions"
+        v-model="form.entity_type_id"
+      />
+      <combobox
+        ref="episodeField"
+        :label="$t('assets.fields.episode')"
+        :options="episodeOptions"
+        required
+        v-model="form.source_id"
+        v-if="isTVShow"
+      />
+      <text-field
+        ref="nameField"
+        :label="$t('assets.fields.name')"
+        :maxlength="160"
+        v-model.trim="form.name"
+        @enter="runConfirmation"
+        v-focus
+      />
+      <textarea-field
+        :label="$t('assets.fields.description')"
+        v-model="form.description"
+        @keyup.ctrl.enter="runConfirmation"
+        @keyup.meta.enter="runConfirmation"
+      />
+      <text-field
+        :label="$t('shots.fields.resolution')"
+        :placeholder="currentProduction?.resolution"
+        v-model.trim="form.data.resolution"
+        @enter="runConfirmation"
+      />
+      <template v-if="assetToEdit">
+        <metadata-field
+          :key="descriptor.id"
+          :descriptor="descriptor"
+          :entity="assetToEdit"
+          @enter="runConfirmation"
+          v-model="form.data[descriptor.field_name]"
+          v-for="descriptor in assetMetadataDescriptors"
+        />
+      </template>
+      <combobox-boolean
+        :label="$t('assets.fields.shared')"
+        v-model="form.is_shared"
+        @enter="runConfirmation"
+      />
+      <combobox-boolean
+        :label="$t('assets.fields.use_import_workflow')"
+        v-model="form.use_import_workflow"
+        @enter="runConfirmation"
+        v-if="showImportWorkflowOption"
+      />
+      <p class="field-hint" v-if="showImportWorkflowOption">
+        {{ $t('assets.fields.use_import_workflow_hint') }}
+      </p>
+    </form>
 
-    <div class="modal-content">
-      <div class="box">
-        <h1 class="title" v-if="assetToEdit && assetToEdit.id">
-          {{ $t('assets.edit_title') }} {{ assetToEdit.name }}
-        </h1>
-        <h1 class="title" v-else>
-          {{ $t('assets.new_asset') }}
-        </h1>
-
-        <form @submit.prevent>
-          <combobox
-            :label="$t('assets.fields.type')"
-            :options="productionAssetTypeOptions"
-            v-model="form.entity_type_id"
-          />
-          <combobox
-            :label="$t('assets.fields.episode')"
-            :options="episodeOptions"
-            v-model="form.source_id"
-            v-if="isTVShow"
-          />
-          <text-field
-            ref="nameField"
-            :label="$t('assets.fields.name')"
-            v-model.trim="form.name"
-            @enter="runConfirmation"
-            v-focus
-          />
-          <textarea-field
-            ref="descriptionField"
-            :label="$t('assets.fields.description')"
-            v-model="form.description"
-            @keyup.ctrl.enter="runConfirmation"
-            @keyup.meta.enter="runConfirmation"
-          />
-          <text-field
-            ref="resolutionField"
-            :label="$t('shots.fields.resolution')"
-            v-model="form.data.resolution"
-            @enter="runConfirmation"
-          />
-          <template v-if="assetToEdit">
-            <metadata-field
-              :key="descriptor.id"
-              :descriptor="descriptor"
-              :entity="assetToEdit"
-              @enter="runConfirmation"
-              v-model="form.data[descriptor.field_name]"
-              v-for="descriptor in assetMetadataDescriptors"
-            />
-          </template>
-          <combobox-boolean
-            :label="$t('assets.fields.shared')"
-            v-model="form.is_shared"
-            @enter="runConfirmation"
-          />
-          <combobox-boolean
-            v-if="showImportWorkflowOption"
-            :label="$t('assets.fields.use_import_workflow')"
-            v-model="form.use_import_workflow"
-            @enter="runConfirmation"
-          />
-          <p v-if="showImportWorkflowOption" class="field-hint">
-            {{ $t('assets.fields.use_import_workflow_hint') }}
-          </p>
-        </form>
-
-        <div class="has-text-right">
-          <a
-            :class="{
-              button: true,
-              'is-primary': true,
-              'is-loading': isLoadingStay
-            }"
-            @click="confirmAndStayClicked"
-            v-if="!assetToEdit || !assetToEdit.id"
-          >
-            {{ $t('main.confirmation_and_stay') }}
-          </a>
-          <a
-            :class="{
-              button: true,
-              'is-primary': true,
-              'is-loading': isLoading
-            }"
-            @click="confirmClicked"
-          >
-            {{ $t('main.confirmation') }}
-          </a>
-          <button class="button is-link" @click="$emit('cancel')">
-            {{ $t('main.close') }}
-          </button>
-          <p class="error has-text-right info-message" v-if="isError">
-            {{ $t('assets.edit_fail') }}
-          </p>
-          <p class="success has-text-right info-message" v-if="isSuccess">
-            {{ assetSuccessText }}
-          </p>
-        </div>
-      </div>
+    <div class="has-text-right">
+      <a
+        :class="{
+          button: true,
+          'is-primary': true,
+          'is-loading': isLoadingStay
+        }"
+        @click="confirmAndStayClicked"
+        v-if="!assetToEdit?.id"
+      >
+        {{ $t('main.confirmation_and_stay') }}
+      </a>
+      <a
+        :class="{
+          button: true,
+          'is-primary': true,
+          'is-loading': isLoading
+        }"
+        @click="confirmClicked"
+      >
+        {{ $t('main.confirmation') }}
+      </a>
+      <button class="button is-link" @click="$emit('cancel')">
+        {{ $t('main.close') }}
+      </button>
+      <p class="error has-text-right info-message" v-if="isError">
+        {{ $t('assets.edit_fail') }}
+      </p>
+      <p class="success has-text-right info-message" v-if="isSuccess">
+        {{ assetSuccessText }}
+      </p>
     </div>
-  </div>
+  </base-modal>
 </template>
 
-<script>
-import { mapGetters } from 'vuex'
+<script setup>
+import { computed, onMounted, ref, watch } from 'vue'
+import { useI18n } from 'vue-i18n'
+import { useStore } from 'vuex'
 
-import { modalMixin } from '@/components/modals/base_modal'
-
+import BaseModal from '@/components/modals/BaseModal.vue'
 import Combobox from '@/components/widgets/Combobox.vue'
 import ComboboxBoolean from '@/components/widgets/ComboboxBoolean.vue'
 import MetadataField from '@/components/widgets/MetadataField.vue'
 import TextField from '@/components/widgets/TextField.vue'
 import TextareaField from '@/components/widgets/TextareaField.vue'
 
-export default {
-  name: 'edit-asset-modal',
+const { t } = useI18n()
+const store = useStore()
 
-  mixins: [modalMixin],
+const props = defineProps({
+  active: { type: Boolean, default: false },
+  assetToEdit: { type: Object, default: () => ({}) },
+  isError: { type: Boolean, default: false },
+  isLoading: { type: Boolean, default: false },
+  isLoadingStay: { type: Boolean, default: false },
+  isSuccess: { type: Boolean, default: false },
+  text: { type: String, default: '' }
+})
 
-  components: {
-    Combobox,
-    ComboboxBoolean,
-    MetadataField,
-    TextField,
-    TextareaField
-  },
+const emit = defineEmits(['cancel', 'confirm', 'confirm-and-stay'])
 
-  props: {
-    active: {
-      type: Boolean,
-      default: false
-    },
-    text: {
-      type: String,
-      default: ''
-    },
-    isError: {
-      type: Boolean,
-      default: false
-    },
-    isLoading: {
-      type: Boolean,
-      default: false
-    },
-    isLoadingStay: {
-      type: Boolean,
-      default: false
-    },
-    isSuccess: {
-      type: Boolean,
-      default: false
-    },
-    assetToEdit: {
-      type: Object,
-      default: () => {}
-    }
-  },
+const form = ref({
+  name: '',
+  description: '',
+  source_id: 'null',
+  data: { resolution: '' },
+  is_shared: 'false',
+  use_import_workflow: 'false'
+})
+const assetSuccessText = ref('')
+const episodeField = ref(null)
+const nameField = ref(null)
 
-  emits: ['cancel', 'confirm', 'confirm-and-stay'],
+const assetCreated = computed(() => store.getters.assetCreated)
+const assetMetadataDescriptors = computed(
+  () => store.getters.assetMetadataDescriptors
+)
+const assetTypeMap = computed(() => store.getters.assetTypeMap)
+const currentEpisode = computed(() => store.getters.currentEpisode)
+const currentProduction = computed(() => store.getters.currentProduction)
+const episodes = computed(() => store.getters.episodes)
+const isTVShow = computed(() => store.getters.isTVShow)
+const openProductions = computed(() => store.getters.openProductions)
+const productionAssetTypeOptions = computed(
+  () => store.getters.productionAssetTypeOptions
+)
 
-  data() {
-    return {
-      form: {
-        name: '',
-        description: '',
-        source_id: null,
-        data: {
-          resolution: ''
-        },
-        is_shared: 'false',
-        use_import_workflow: 'false'
+const isEditing = computed(() => Boolean(props.assetToEdit?.id))
+
+const modalTitle = computed(() =>
+  isEditing.value
+    ? `${t('assets.edit_title')} ${props.assetToEdit.name}`
+    : t('assets.new_asset')
+)
+
+const episodeOptions = computed(() => {
+  const options = episodes.value.map(episode => ({
+    label: episode.name,
+    value: episode.id
+  }))
+  if (currentProduction.value?.production_style !== 'video-game') {
+    options.unshift({ label: t('main.main_pack'), value: 'null' })
+  }
+  return options
+})
+
+const showImportWorkflowOption = computed(() => {
+  // Show the toggle only when the selected asset type has an import workflow
+  // configured (both when creating and when editing an asset).
+  const assetType = assetTypeMap.value.get(form.value.entity_type_id)
+  return assetType?.import_task_types?.length > 0
+})
+
+const focusName = () => {
+  nameField.value?.focus()
+}
+
+const validateForm = () => {
+  if (isTVShow.value && !episodeField.value?.isValid) {
+    episodeField.value?.focus()
+    return false
+  }
+  if (!form.value.name) {
+    focusName()
+    return false
+  }
+  return true
+}
+
+const buildPayload = () => ({
+  ...form.value,
+  is_shared: form.value.is_shared === 'true',
+  use_import_workflow: form.value.use_import_workflow === 'true'
+})
+
+const confirmClicked = () => {
+  if (!validateForm()) return
+  emit('confirm', buildPayload())
+}
+
+const confirmAndStayClicked = () => {
+  if (!validateForm()) return
+  emit('confirm-and-stay', buildPayload())
+}
+
+const runConfirmation = () => {
+  if (isEditing.value) confirmClicked()
+  else confirmAndStayClicked()
+}
+
+const getEntityTypeIdDefaultValue = () => {
+  const options = productionAssetTypeOptions.value
+  let entityTypeId = props.assetToEdit.asset_type_id || options[0]?.value
+  const isInOptions = options.some(option => option.value === entityTypeId)
+  if (!isInOptions) entityTypeId = options[0]?.value
+  return entityTypeId
+}
+
+const resetForm = () => {
+  if (isEditing.value) {
+    form.value = {
+      entity_type_id: getEntityTypeIdDefaultValue(),
+      project_id: props.assetToEdit.project_id,
+      name: props.assetToEdit.name,
+      description: props.assetToEdit.description,
+      source_id:
+        props.assetToEdit.source_id || props.assetToEdit.episode_id || 'null',
+      data: {
+        ...props.assetToEdit.data,
+        resolution: props.assetToEdit.data?.resolution || ''
       },
-      assetSuccessText: ''
-    }
-  },
-
-  mounted() {
-    this.resetForm()
-    this.assetSuccessText = ''
-  },
-
-  computed: {
-    ...mapGetters([
-      'assets',
-      'assetCreated',
-      'assetMetadataDescriptors',
-      'assetTypes',
-      'assetTypeMap',
-      'currentProduction',
-      'currentEpisode',
-      'episodes',
-      'isTVShow',
-      'productionAssetTypes',
-      'productionAssetTypeOptions',
-      'openProductions'
-    ]),
-
-    showImportWorkflowOption() {
-      // Check if selected asset type has import workflow configured
-      const assetType = this.assetTypeMap.get(this.form.entity_type_id)
-      return assetType?.import_task_types?.length > 0
-    },
-
-    resolution() {
-      return this.assetToEdit.data?.resolution || ''
-    },
-
-    episodeOptions() {
-      const options = this.episodes.map(episode => {
-        return {
-          label: episode.name,
-          value: episode.id
-        }
-      })
-      if (this.currentProduction.production_style !== 'video-game') {
-        options.unshift({
-          label: this.$t('main.main_pack'),
-          value: 'null'
-        })
-      }
-      return options
-    }
-  },
-
-  methods: {
-    runConfirmation() {
-      if (this.form.name.length > 0) {
-        if (this.isEditing()) {
-          this.confirmClicked()
-        } else {
-          this.confirmAndStayClicked()
-        }
-      }
-    },
-
-    focusName() {
-      this.$refs.nameField.focus()
-    },
-
-    confirmAndStayClicked() {
-      this.$emit('confirm-and-stay', {
-        ...this.form,
-        is_shared: this.form.is_shared === 'true',
-        use_import_workflow: this.form.use_import_workflow === 'true'
-      })
-    },
-
-    confirmClicked() {
-      this.$emit('confirm', {
-        ...this.form,
-        is_shared: this.form.is_shared === 'true',
-        use_import_workflow: this.form.use_import_workflow === 'true'
-      })
-    },
-
-    isEditing() {
-      return this.assetToEdit && this.assetToEdit.id
-    },
-
-    getEntityTypeIdDefaultValue() {
-      let entityTypeId = this.assetToEdit.asset_type_id
-      if (!entityTypeId) {
-        entityTypeId = this.productionAssetTypeOptions[0].value
-      }
-      const isInOptions = this.productionAssetTypeOptions.find(
-        option => option.value === entityTypeId
+      is_shared: String(props.assetToEdit.is_shared === true),
+      use_import_workflow: String(
+        props.assetToEdit.uses_import_workflow === true
       )
-      if (!isInOptions) {
-        entityTypeId = this.productionAssetTypeOptions[0].value
-      }
-      return entityTypeId
-    },
-
-    resetForm() {
-      if (!this.isEditing()) {
-        if (!this.form.entity_type_id && this.productionAssetTypeOptions[0]) {
-          this.form.entity_type_id = this.productionAssetTypeOptions[0].value
-        }
-        if (this.openProductions.length > 0) {
-          this.form.project_id = this.currentProduction
-            ? this.currentProduction.id
-            : ''
-        }
-        this.form.name = ''
-        this.form.description = ''
-        this.form.source_id = this.currentEpisode
-          ? this.currentEpisode.id
-          : null
-        this.form.data = {}
-        this.form.is_shared = 'false'
-        this.form.use_import_workflow = 'false'
-      } else {
-        const entityTypeId = this.getEntityTypeIdDefaultValue()
-        this.form = {
-          entity_type_id: entityTypeId,
-          project_id: this.assetToEdit.project_id,
-          name: this.assetToEdit.name,
-          description: this.assetToEdit.description,
-          source_id: this.assetToEdit.source_id || this.assetToEdit.episode_id,
-          data:
-            {
-              ...this.assetToEdit.data,
-              resolution: this.assetToEdit.data.resolution || ''
-            } || {},
-          is_shared: String(this.assetToEdit.is_shared === true),
-          use_import_workflow: String(
-            this.assetToEdit.uses_import_workflow === true
-          )
-        }
-      }
     }
-  },
-
-  watch: {
-    assetToEdit() {
-      this.resetForm()
-    },
-
-    assetCreated() {
-      if (this.isEditing()) {
-        this.assetSuccessText = this.$t('assets.edit_success', {
-          name: this.assetCreated
-        })
-      } else {
-        this.assetSuccessText = this.$t('assets.new_success', {
-          name: this.assetCreated
-        })
-      }
-    },
-
-    active() {
-      this.assetSuccessText = ''
-      this.resetForm()
-      if (this.active) {
-        setTimeout(() => {
-          this.$refs.nameField.focus()
-        }, 100)
-      }
-    },
-
-    currentProduction() {
-      this.form.entity_type_id = null
-      this.resetForm()
+  } else {
+    if (!form.value.entity_type_id && productionAssetTypeOptions.value[0]) {
+      form.value.entity_type_id = productionAssetTypeOptions.value[0].value
     }
+    if (openProductions.value.length > 0) {
+      form.value.project_id = currentProduction.value?.id || ''
+    }
+    form.value.name = ''
+    form.value.description = ''
+    form.value.source_id = ['all', 'main'].includes(currentEpisode.value?.id)
+      ? 'null'
+      : currentEpisode.value?.id || 'null'
+    form.value.data = {}
+    form.value.is_shared = 'false'
+    form.value.use_import_workflow = 'false'
   }
 }
+
+watch(() => props.assetToEdit, resetForm)
+
+watch(assetCreated, value => {
+  assetSuccessText.value = isEditing.value
+    ? t('assets.edit_success', { name: value })
+    : t('assets.new_success', { name: value })
+})
+
+watch(
+  () => props.active,
+  active => {
+    assetSuccessText.value = ''
+    resetForm()
+    if (active) {
+      setTimeout(() => {
+        focusName()
+      }, 100)
+    }
+  }
+)
+
+watch(currentProduction, () => {
+  form.value.entity_type_id = null
+  resetForm()
+})
+
+onMounted(() => {
+  resetForm()
+  assetSuccessText.value = ''
+})
+
+defineExpose({ focusName })
 </script>
 
 <style lang="scss" scoped>
-.modal-content .box p.text {
-  margin-bottom: 1em;
-}
-
-.is-danger {
-  color: #ff3860;
-  font-style: italic;
-}
-
 .info-message {
   margin-top: 1em;
 }

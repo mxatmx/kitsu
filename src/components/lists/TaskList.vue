@@ -19,7 +19,7 @@
             <th
               class="sequence"
               ref="th-type"
-              v-else-if="!isEpisodes && !isSequences"
+              v-else-if="!isEpisodes && !isSequences && !isEdits"
             >
               {{ $t('tasks.fields.sequence') }}
             </th>
@@ -110,7 +110,10 @@
             <td class="asset-type" v-if="isAssets">
               {{ getEntity(task.entity.id).asset_type_name }}
             </td>
-            <td class="sequence" v-else-if="!isEpisodes && !isSequences">
+            <td
+              class="sequence"
+              v-else-if="!isEpisodes && !isSequences && !isEdits"
+            >
               {{ getEntity(task.entity.id).sequence_name }}
             </td>
             <td class="name">
@@ -254,7 +257,12 @@
           </tr>
         </tbody>
       </table>
-      <table-info :is-loading="isLoading" :is-error="isError" />
+      <table-info
+        :is-loading="isLoading"
+        :is-error="isError"
+        :cells="9"
+        :with-actions="false"
+      />
     </div>
     <div
       class="list-wrapper"
@@ -495,6 +503,10 @@ export default {
       return this.entityType === 'Asset'
     },
 
+    isEdits() {
+      return this.entityType === 'Edit'
+    },
+
     isEpisodes() {
       return this.entityType === 'Episode'
     },
@@ -622,13 +634,9 @@ export default {
 
     updateStartDate(date) {
       Object.keys(this.selectionGrid).forEach(taskId => {
-        let data = {
-          start_date: null,
-          due_date: null,
-          difficulty: null
-        }
         const task = this.taskMap.get(taskId)
         const dueDate = task.due_date ? parseSimpleDate(task.due_date) : null
+        let data
         if (date) {
           const startDate = moment(date)
           if (
@@ -645,7 +653,7 @@ export default {
         } else {
           data = {
             start_date: null,
-            due_date: dueDate
+            due_date: task.due_date
           }
         }
         if (task.difficulty) {
@@ -659,14 +667,11 @@ export default {
 
     updateDueDate(date) {
       Object.keys(this.selectionGrid).forEach(taskId => {
-        let data = {
-          start_date: null,
-          due_date: null
-        }
         const task = this.taskMap.get(taskId)
         const startDate = task.start_date
           ? parseSimpleDate(task.start_date)
           : null
+        let data
         if (date) {
           const dueDate = moment(date)
           if (
@@ -682,7 +687,7 @@ export default {
           )
         } else {
           data = {
-            start_date: startDate,
+            start_date: task.start_date,
             due_date: null
           }
         }
@@ -763,11 +768,11 @@ export default {
       if (this.tasks.length > 0 && event.altKey) {
         let index = this.lastSelection ? this.lastSelection : 0
         if ([37, 38].includes(event.keyCode)) {
-          index = index - 1 < 0 ? (index = this.tasks.length - 1) : index - 1
+          index = index - 1 < 0 ? this.tasks.length - 1 : index - 1
           this.selectTask({}, index, this.tasks[index])
           this.pauseEvent(event)
         } else if ([39, 40].includes(event.keyCode)) {
-          index = index + 1 >= this.tasks.length ? (index = 0) : index + 1
+          index = index + 1 >= this.tasks.length ? 0 : index + 1
           this.selectTask({}, index, this.tasks[index])
           this.pauseEvent(event)
         }
@@ -814,12 +819,10 @@ export default {
         }
       } else {
         this.selectionGrid = {}
-        let taskIndices = []
-        if (this.lastSelection > index) {
-          taskIndices = range(index, this.lastSelection)
-        } else {
-          taskIndices = range(this.lastSelection, index)
-        }
+        const taskIndices =
+          this.lastSelection > index
+            ? range(index, this.lastSelection)
+            : range(this.lastSelection, index)
         const selection = taskIndices.map(i => ({ task: this.tasks[i] }))
         selection.forEach(task => {
           this.selectionGrid[task.task.id] = true

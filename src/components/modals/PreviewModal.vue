@@ -6,93 +6,84 @@
     }"
   >
     <div class="modal-background" @click="$emit('cancel')"></div>
-    <div class="new-window">
-      <a class="mr1" :href="previewDlPath" v-if="previewFileId">
-        <arrow-down-icon />
+    <div class="actions">
+      <a
+        :href="previewDlPath"
+        :title="$t('playlists.actions.download_file')"
+        v-if="previewFileId"
+      >
+        <download-icon />
       </a>
-      <a target="_blank" :href="previewPath">
+      <a
+        :href="previewPath"
+        target="_blank"
+        :title="$t('playlists.actions.see_original_file')"
+      >
         <arrow-up-right-icon />
       </a>
+      <span class="pointer" :title="$t('main.close')" @click="$emit('cancel')">
+        <x-icon />
+      </span>
     </div>
-
     <div class="modal-content" @click="$emit('cancel')">
       <img :src="previewPath" />
     </div>
   </div>
 </template>
 
-<script>
-import { ArrowDownIcon, ArrowUpRightIcon } from 'lucide-vue-next'
+<script setup>
+import { ArrowUpRightIcon, DownloadIcon, XIcon } from 'lucide-vue-next'
+import { computed, toRef } from 'vue'
 
+import { useModal } from '@/composables/modal'
 import { getDownloadAttachmentPath } from '@/lib/path'
 
-import { modalMixin } from '@/components/modals/base_modal'
+const props = defineProps({
+  active: { type: Boolean, default: false },
+  attachment: { type: Object, default: () => ({}) },
+  previewFileId: { type: String, default: '' }
+})
 
-export default {
-  name: 'preview-modal',
+const emit = defineEmits(['cancel'])
 
-  mixins: [modalMixin],
+useModal(toRef(props, 'active'), emit)
 
-  components: {
-    ArrowDownIcon,
-    ArrowUpRightIcon
-  },
-
-  props: {
-    active: {
-      type: Boolean,
-      default: false
-    },
-    previewFileId: {
-      type: String,
-      default: ''
-    },
-    attachment: {
-      type: Object,
-      default: () => {}
-    }
-  },
-
-  emits: ['cancel'],
-
-  computed: {
-    previewPath() {
-      if (this.previewFileId) {
-        const id = this.previewFileId
-        return this.active && this.previewFileId
-          ? '/api/pictures/originals/preview-files/' + id + '.png'
-          : ''
-      } else if (this.attachment) {
-        return getDownloadAttachmentPath(this.attachment)
-      }
-      return ''
-    },
-
-    previewDlPath() {
-      const previewId = this.previewFileId
-      return `/api/pictures/originals/preview-files/${previewId}/download`
-    }
+const previewPath = computed(() => {
+  if (props.previewFileId) {
+    return props.active
+      ? `/api/pictures/originals/preview-files/${props.previewFileId}.png`
+      : ''
   }
-}
+  if (props.attachment) {
+    return getDownloadAttachmentPath(props.attachment)
+  }
+  return ''
+})
+
+const previewDlPath = computed(
+  () => `/api/pictures/originals/preview-files/${props.previewFileId}/download`
+)
 </script>
 
 <style lang="scss" scoped>
-.error {
-  margin-top: 1em;
-}
-
-.new-window {
+.actions {
+  display: inline-flex;
+  gap: 1em;
   color: $grey;
   position: absolute;
   right: 1em;
   top: 1em;
   z-index: 2;
+
+  & > *:hover {
+    color: $light-grey;
+  }
 }
 
 .modal-content {
   width: 100%;
   text-align: center;
-  max-height: 100vh;
+  max-height: 100vmax;
 
   img {
     max-height: 100vh;

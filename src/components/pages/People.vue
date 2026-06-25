@@ -36,15 +36,17 @@
         @save="saveSearchQuery"
         placeholder="ex: John Doe"
       />
-      <combobox-department
-        class="flexrow-item"
-        :label="$t('main.department')"
-        v-model="selectedDepartment"
-      />
       <combobox-studio
         class="flexrow-item"
+        all-studios-label
         :label="$t('main.studio')"
         v-model="selectedStudio"
+      />
+      <combobox-department
+        class="flexrow-item"
+        all-departments-label
+        :label="$t('main.department')"
+        v-model="selectedDepartment"
       />
       <combobox-styled
         class="flexrow-item"
@@ -67,13 +69,18 @@
     <route-tabs class="mb0" :active-tab="activeTab" :tabs="tabs" />
 
     <people-list
-      :entries="activeTab === 'active' ? activePeople : unactivePeople"
-      :is-loading="isPeopleLoading"
-      :is-error="isPeopleLoadingError"
+      :entries="listEntries"
+      :is-guests="isGuestTab"
+      :is-archived-guests="activeTab === 'archived-guests'"
+      :is-loading="isListLoading"
+      :is-error="isListError"
+      :seats-remaining="activeTab === 'active' ? seatsRemaining : null"
+      @archive-clicked="onArchiveClicked"
       @avatar-clicked="onAvatarClicked"
       @delete-clicked="onDeleteClicked"
       @edit-clicked="onEditClicked"
       @equipment-clicked="onEquipmentClicked"
+      @restore-clicked="onRestoreClicked"
       @change-password-clicked="onChangePasswordClicked"
     />
 
@@ -119,9 +126,10 @@
     />
 
     <edit-person-modal
-      :active="modals.edit"
+      active
       :is-create-invite-loading="loading.createAndInvite"
       :is-error="errors.edit"
+      :is-email-domain-error="errors.invalidEmailDomain"
       :is-invite-loading="loading.invite"
       :is-invitation-success="success.invite"
       :is-invitation-error="errors.invite"
@@ -132,6 +140,8 @@
       @confirm="confirmEditPeople"
       @confirm-invite="confirmCreateAndInvite"
       @invite="confirmInvite"
+      @reset-error="resetError"
+      v-if="modals.edit"
     />
 
     <edit-equipment-modal
@@ -160,6 +170,16 @@
       @confirm="confirmDeletePeople"
       v-if="modals.del"
     />
+
+    <confirm-modal
+      :active="modals.archiveGuest"
+      :error-text="$t('people.archive_guest_error')"
+      :is-error="errors.archiveGuest"
+      :is-loading="loading.archiveGuest"
+      :text="$t('people.archive_guest_confirm')"
+      @cancel="modals.archiveGuest = false"
+      @confirm="confirmArchiveGuest"
+    />
   </div>
 </template>
 
@@ -174,6 +194,7 @@ import ButtonHrefLink from '@/components/widgets/ButtonHrefLink.vue'
 import ButtonSimple from '@/components/widgets/ButtonSimple.vue'
 import ChangePasswordModal from '@/components/modals/ChangePasswordModal.vue'
 import ComboboxDepartment from '@/components/widgets/ComboboxDepartment.vue'
+import ConfirmModal from '@/components/modals/ConfirmModal.vue'
 import ComboboxStudio from '@/components/widgets/ComboboxStudio.vue'
 import ComboboxStyled from '@/components/widgets/ComboboxStyled.vue'
 import EditAvatarModal from '@/components/modals/EditAvatarModal.vue'
@@ -199,6 +220,7 @@ export default {
     ChangePasswordModal,
     ComboboxDepartment,
     ComboboxStudio,
+    ConfirmModal,
     ComboboxStyled,
     EditAvatarModal,
     EditEquipmentModal,
@@ -220,8 +242,13 @@ export default {
       optionalCsvColumns: [
         'Phone',
         'Role',
-        'Contract Type',
+        'Departments',
         'Studio',
+        'Country',
+        'Contract Type',
+        'Position',
+        'Seniority',
+        'Daily Salary',
         'Active'
       ],
       dataMatchers: ['Email'],
@@ -236,13 +263,16 @@ export default {
         { label: 'vendor', value: 'vendor' }
       ],
       errors: {
+        archiveGuest: false,
         avatar: false,
         del: false,
         edit: false,
         invite: false,
+        invalidEmailDomain: false,
         userLimit: false
       },
       loading: {
+        archiveGuest: false,
         createAndInvite: false,
         del: false,
         deletingAvatar: false,
@@ -252,6 +282,7 @@ export default {
         updatingAvatar: false
       },
       modals: {
+        archiveGuest: false,
         avatar: false,
         changePassword: false,
         del: false,
@@ -261,6 +292,7 @@ export default {
         isImportRenderDisplayed: false
       },
       parsedCSV: [],
+      personToArchive: null,
       personToDelete: {},
       personToEdit: { role: 'user' },
       personToChangePassword: {},
@@ -268,17 +300,7 @@ export default {
       selectedStudio: '',
       success: {
         invite: false
-      },
-      tabs: [
-        {
-          name: 'active',
-          label: this.$t('main.active')
-        },
-        {
-          name: 'unactive',
-          label: this.$t('people.unactive')
-        }
-      ]
+      }
     }
   },
 
@@ -290,20 +312,64 @@ export default {
     this.setSearchFromUrl()
     await this.loadPeople()
     this.onSearchChange()
+    this.ensureGuestsLoaded()
   },
 
   computed: {
     ...mapGetters([
+      'activePeopleWithoutBot',
       'displayedPeople',
+      'guests',
       'isCurrentUserAdmin',
-      'isPeopleLoading',
-      'isPeopleLoadingError',
+      'isGuestsLoaded',
+      'isGuestsLoading',
+      'isGuestsLoadingError',
       'isImportPeopleLoading',
       'isImportPeopleLoadingError',
+      'isPeopleLoading',
+      'isPeopleLoadingError',
+      'mainConfig',
       'peopleSearchQueries',
       'personCsvFormData',
-      'studioMap'
+      'studioMap',
+      'userLimit'
     ]),
+
+    seatsRemaining() {
+      if (this.mainConfig.is_self_hosted) return null
+      return Math.max(0, this.userLimit - this.activePeopleWithoutBot.length)
+    },
+
+    tabs() {
+      const guestCount = this.isGuestsLoaded ? this.currentGuests.length : null
+      const archivedGuestCount = this.isGuestsLoaded
+        ? this.archivedGuests.length
+        : null
+      return [
+        {
+          name: 'active',
+          label: `${this.$t('main.active')} (${this.activePeople.length})`
+        },
+        {
+          name: 'unactive',
+          label: `${this.$t('people.unactive')} (${this.unactivePeople.length})`
+        },
+        {
+          name: 'guests',
+          label:
+            guestCount === null
+              ? this.$tc('people.guests', 2)
+              : `${this.$tc('people.guests', 2)} (${guestCount})`
+        },
+        {
+          name: 'archived-guests',
+          label:
+            archivedGuestCount === null
+              ? this.$t('people.archived_guests')
+              : `${this.$t('people.archived_guests')} (${archivedGuestCount})`
+        }
+      ]
+    },
 
     currentPeople() {
       let people = this.displayedPeople.filter(person => !person.is_bot)
@@ -350,24 +416,93 @@ export default {
 
     unactivePeople() {
       return this.currentPeople.filter(person => !person.active)
+    },
+
+    filteredGuests() {
+      // Apply the same role / department / studio / search-text filters as
+      // the regular people list so the guests tab honours the toolbar
+      // controls. Guests typically have role=client; we still respect the
+      // toolbar value if the user picks something else.
+      const search = this.searchField?.getValue() || ''
+      const keyword = search.toLowerCase().trim()
+      let people = this.guests
+      if (keyword) {
+        people = people.filter(person =>
+          (person.name || '').toLowerCase().includes(keyword)
+        )
+      }
+      if (this.role !== 'all') {
+        people = people.filter(person => person.role === this.role)
+      }
+      if (this.selectedDepartment) {
+        people = people.filter(person =>
+          person.departments?.includes(this.selectedDepartment)
+        )
+      }
+      if (this.selectedStudio) {
+        people = people.filter(
+          person => person.studio_id === this.selectedStudio
+        )
+      }
+      return people.map(person => ({
+        ...person,
+        studio: this.studioMap.get(person.studio_id)
+      }))
+    },
+
+    currentGuests() {
+      return this.filteredGuests.filter(person => person.active)
+    },
+
+    archivedGuests() {
+      return this.filteredGuests.filter(person => !person.active)
+    },
+
+    isGuestTab() {
+      return ['guests', 'archived-guests'].includes(this.activeTab)
+    },
+
+    listEntries() {
+      if (this.activeTab === 'guests') return this.currentGuests
+      if (this.activeTab === 'archived-guests') return this.archivedGuests
+      if (this.activeTab === 'unactive') return this.unactivePeople
+      return this.activePeople
+    },
+
+    isListLoading() {
+      return this.isGuestTab ? this.isGuestsLoading : this.isPeopleLoading
+    },
+
+    isListError() {
+      return this.isGuestTab
+        ? this.isGuestsLoadingError
+        : this.isPeopleLoadingError
     }
   },
 
   methods: {
     ...mapActions([
+      'archivePerson',
       'clearPersonAvatar',
       'deletePeople',
       'editPerson',
       'invitePerson',
+      'loadGuests',
       'loadPeople',
       'newPerson',
       'newPersonAndInvite',
       'removePeopleSearch',
+      'restorePerson',
       'savePeopleSearch',
       'setPeopleSearch',
       'uploadPersonAvatar',
       'uploadPersonFile'
     ]),
+
+    ensureGuestsLoaded() {
+      if (!this.isGuestTab) return
+      this.loadGuests().catch(console.error)
+    },
 
     renderImport(data, mode) {
       this.loading.importing = true
@@ -447,21 +582,25 @@ export default {
       else form.id = this.personToEdit.id
       this.loading.edit = true
       this.errors.edit = false
+      this.errors.invalidEmailDomain = false
       this.errors.userLimit = false
       this[action](form)
         .then(() => {
-          this.loading.edit = false
           this.modals.edit = false
           this.onSearchChange()
         })
         .catch(err => {
-          const isUserLimitReached =
-            err.body?.message?.includes('limit') ?? false
-          if (isUserLimitReached) {
+          console.error(err)
+          const message = err.body?.message ?? ''
+          if (message.includes('domain name')) {
+            this.errors.invalidEmailDomain = true
+          } else if (message.includes('limit reached')) {
             this.errors.userLimit = true
           } else {
             this.errors.edit = true
           }
+        })
+        .finally(() => {
           this.loading.edit = false
         })
     },
@@ -469,22 +608,25 @@ export default {
     confirmCreateAndInvite(form) {
       this.loading.createAndInvite = true
       this.errors.edit = false
+      this.errors.invalidEmailDomain = false
       this.errors.userLimit = false
       this.newPersonAndInvite(form)
         .then(() => {
-          this.loading.createAndInvite = false
           this.modals.edit = false
           this.onSearchChange()
         })
         .catch(err => {
           console.error(err)
-          const isUserLimitReached =
-            err.body?.message?.includes('limit') ?? false
-          if (isUserLimitReached) {
+          const message = err.body?.message ?? ''
+          if (message.includes('domain name')) {
+            this.errors.invalidEmailDomain = true
+          } else if (message.includes('limit reached')) {
             this.errors.userLimit = true
           } else {
             this.errors.edit = true
           }
+        })
+        .finally(() => {
           this.loading.createAndInvite = false
         })
     },
@@ -492,18 +634,20 @@ export default {
     confirmInvite(form) {
       form.id = this.personToEdit.id
       this.loading.invite = true
+      this.success.invite = false
       this.errors.invite = false
       this.invitePerson(form)
         .then(() => {
-          this.loading.invite = false
           this.success.invite = true
           this.onSearchChange()
         })
         .catch(err => {
           console.error(err)
-          this.loading.invite = false
           this.success.invite = false
           this.errors.invite = true
+        })
+        .finally(() => {
+          this.loading.invite = false
         })
     },
 
@@ -512,15 +656,22 @@ export default {
       this.errors.del = false
       this.deletePeople(this.personToDelete)
         .then(() => {
-          this.loading.del = false
           this.modals.del = false
           this.onSearchChange()
         })
         .catch(err => {
           console.error(err)
-          this.loading.del = false
           this.errors.del = true
         })
+        .finally(() => {
+          this.loading.del = false
+        })
+    },
+
+    resetError(error) {
+      if (error === 'email') {
+        this.errors.invalidEmailDomain = false
+      }
     },
 
     onSearchChange() {
@@ -531,9 +682,6 @@ export default {
         }
         this.setSearchInUrl()
       }
-      // refresh tabs
-      this.tabs[0].label = `${this.$t('main.active')} (${this.activePeople.length})`
-      this.tabs[1].label = `${this.$t('people.unactive')} (${this.unactivePeople.length})`
     },
 
     onAvatarClicked(person) {
@@ -545,6 +693,36 @@ export default {
     onDeleteClicked(person) {
       this.personToDelete = person
       this.modals.del = true
+    },
+
+    onArchiveClicked(person) {
+      this.personToArchive = person
+      this.errors.archiveGuest = false
+      this.modals.archiveGuest = true
+    },
+
+    async confirmArchiveGuest() {
+      if (!this.personToArchive) return
+      this.loading.archiveGuest = true
+      this.errors.archiveGuest = false
+      try {
+        await this.archivePerson(this.personToArchive)
+        this.modals.archiveGuest = false
+        this.personToArchive = null
+      } catch (err) {
+        console.error(err)
+        this.errors.archiveGuest = true
+      } finally {
+        this.loading.archiveGuest = false
+      }
+    },
+
+    async onRestoreClicked(person) {
+      try {
+        await this.restorePerson(person)
+      } catch (err) {
+        console.error(err)
+      }
     },
 
     onEditClicked(person) {
@@ -618,6 +796,7 @@ export default {
         this.loading.createAndInvite = false
         this.errors.edit = false
         this.errors.invite = false
+        this.errors.invalidEmailDomain = false
         this.errors.userLimit = false
         this.loading.edit = false
         this.loading.invite = false
@@ -639,6 +818,7 @@ export default {
 
     '$route.query.tab'() {
       this.activeTab = this.$route.query.tab || 'active'
+      this.ensureGuestsLoaded()
     },
 
     '$route.query.search'(search) {

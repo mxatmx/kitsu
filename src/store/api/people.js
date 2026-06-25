@@ -1,6 +1,8 @@
 import client from '@/store/api/client'
 import { buildQueryString } from '@/lib/query'
 
+const toBool = value => value === true || value === 'true'
+
 export default {
   getOrganisations() {
     return client.pget('/api/data/organisations')
@@ -37,7 +39,11 @@ export default {
   },
 
   getPeople() {
-    return client.pget('/api/data/persons?relations=true')
+    return client.pget('/api/data/persons?relations=true&is_guest=false')
+  },
+
+  getGuests() {
+    return client.pget('/api/data/persons?relations=true&is_guest=true')
   },
 
   getPerson(personId) {
@@ -58,6 +64,7 @@ export default {
       daily_salary: person.daily_salary,
       departments: person.departments,
       studio_id: person.studio_id,
+      country: person.country,
       is_bot: person.is_bot,
       expiration_date: person.expiration_date?.toJSON().slice(0, 10)
     }
@@ -75,6 +82,10 @@ export default {
     return client.pput(`/api/data/persons/${person.id}`, data)
   },
 
+  setPersonActive(personId, active) {
+    return client.pput(`/api/data/persons/${personId}`, { active })
+  },
+
   updatePerson(person) {
     const data = {
       first_name: person.first_name,
@@ -89,18 +100,20 @@ export default {
       position: person.position,
       seniority: person.seniority,
       daily_salary: person.daily_salary,
-      notifications_enabled: person.notifications_enabled === 'true',
-      notifications_slack_enabled:
-        person.notifications_slack_enabled === 'true',
+      notifications_enabled: toBool(person.notifications_enabled),
+      notifications_slack_enabled: toBool(person.notifications_slack_enabled),
       notifications_slack_userid: person.notifications_slack_userid,
-      notifications_mattermost_enabled:
-        person.notifications_mattermost_enabled === 'true',
+      notifications_mattermost_enabled: toBool(
+        person.notifications_mattermost_enabled
+      ),
       notifications_mattermost_userid: person.notifications_mattermost_userid,
-      notifications_discord_enabled:
-        person.notifications_discord_enabled === 'true',
+      notifications_discord_enabled: toBool(
+        person.notifications_discord_enabled
+      ),
       notifications_discord_userid: person.notifications_discord_userid,
       departments: person.departments,
-      studio_id: person.studio_id
+      studio_id: person.studio_id,
+      country: person.country
     }
     return client.pput(`/api/data/persons/${person.id}`, data)
   },
@@ -146,13 +159,13 @@ export default {
   },
 
   preEnableTOTP() {
-    return client.pput('/api/auth/totp', {}).then(body => Promise.resolve(body))
+    return client.pput('/api/auth/totp', {})
   },
 
   enableTOTP(totp) {
     return client
       .ppost('/api/auth/totp', { totp: totp })
-      .then(body => Promise.resolve(body.otp_recovery_codes))
+      .then(body => body.otp_recovery_codes)
   },
 
   disableTOTP(twoFactorPayload) {
@@ -164,15 +177,13 @@ export default {
   },
 
   preEnableEmailOTP() {
-    return client
-      .pput('/api/auth/email-otp', {})
-      .then(body => Promise.resolve(body))
+    return client.pput('/api/auth/email-otp', {})
   },
 
   enableEmailOTP(emailOTP) {
     return client
       .ppost('/api/auth/email-otp', { email_otp: emailOTP })
-      .then(body => Promise.resolve(body.otp_recovery_codes))
+      .then(body => body.otp_recovery_codes)
   },
 
   disableEmailOTP(twoFactorPayload) {
@@ -180,7 +191,7 @@ export default {
   },
 
   preRegisterFIDO() {
-    return client.pput('/api/auth/fido', {}).then(body => Promise.resolve(body))
+    return client.pput('/api/auth/fido', {})
   },
 
   registerFIDO(registrationResponse, deviceName) {
@@ -189,22 +200,22 @@ export default {
         registration_response: registrationResponse,
         device_name: deviceName
       })
-      .then(body => Promise.resolve(body.otp_recovery_codes))
+      .then(body => body.otp_recovery_codes)
   },
 
   getFIDOChallenge(email) {
     return client.pget(`/api/auth/fido?email=${email}`)
   },
 
-  unregisterFIDO(twoFactorPayload, deviceName) {
-    const data = { ...twoFactorPayload, device_name: deviceName }
+  unregisterFIDO(deviceName) {
+    const data = { device_name: deviceName }
     return client.pdel('/api/auth/fido', data)
   },
 
   newRecoveryCodes(twoFactorPayload) {
     return client
       .pput('/api/auth/recovery-codes', twoFactorPayload)
-      .then(body => Promise.resolve(body.otp_recovery_codes))
+      .then(body => body.otp_recovery_codes)
   },
 
   loadTodos() {

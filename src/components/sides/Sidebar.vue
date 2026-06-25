@@ -124,6 +124,24 @@
               </router-link>
             </p>
           </div>
+          <div v-for="plugin in studioPlugins" :key="plugin.id">
+            <p @click="toggleSidebar()">
+              <router-link
+                :to="{
+                  name: 'plugin',
+                  params: { plugin_id: plugin.plugin_id }
+                }"
+              >
+                <icon
+                  class="nav-icon"
+                  :name="plugin.icon"
+                  :size="20"
+                  :stroke-width="1.5"
+                />
+                {{ plugin.name }}
+              </router-link>
+            </p>
+          </div>
 
           <div v-if="isCurrentUserAdmin">
             <h2>{{ $t('main.admin') }}</h2>
@@ -191,6 +209,12 @@
               </router-link>
             </p>
             <p @click="toggleSidebar()">
+              <router-link :to="{ name: 'project-templates' }">
+                <layers-icon class="nav-icon" />
+                {{ $t('project_templates.title') }}
+              </router-link>
+            </p>
+            <p @click="toggleSidebar()">
               <router-link :to="{ name: 'backgrounds' }">
                 <globe-icon class="nav-icon" />
                 {{ $t('backgrounds.title') }}
@@ -227,27 +251,34 @@
 </template>
 
 <script>
-import { mapGetters, mapActions } from 'vuex'
 import {
   BotIcon,
   BuildingIcon,
   ComputerIcon,
   EggIcon,
   GlobeIcon,
+  LayersIcon,
   Rows4Icon
 } from 'lucide-vue-next'
+import { defineAsyncComponent } from 'vue'
+import { mapGetters, mapActions } from 'vuex'
+
+const Icon = defineAsyncComponent(() => import('@/components/widgets/Icon.vue'))
 
 import KitsuIcon from '@/components/widgets/KitsuIcon.vue'
 
 export default {
   name: 'sidebar',
+
   components: {
     BotIcon,
     BuildingIcon,
     ComputerIcon,
     EggIcon,
     GlobeIcon,
+    Icon,
     KitsuIcon,
+    LayersIcon,
     Rows4Icon
   },
 
@@ -272,7 +303,8 @@ export default {
       'isCurrentUserVendor',
       'isSidebarHidden',
       'mainConfig',
-      'organisation'
+      'organisation',
+      'studioPlugins'
     ]),
 
     isLongLocale() {
@@ -410,10 +442,13 @@ p:hover {
 }
 
 @media screen and (max-width: 768px) {
+  .company-logo {
+    width: auto;
+  }
+
   .company-logo img {
-    width: 40px;
+    max-width: 100%;
     margin: 0;
-    flex: 1;
   }
 
   .home-link {

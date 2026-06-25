@@ -1,7 +1,7 @@
 import {
-  buildTaskTypeIndex,
+  buildExactNameIndex,
   buildTaskStatusIndex,
-  buildNameIndex,
+  buildTaskTypeIndex,
   indexSearch
 } from '@/lib/indexing'
 
@@ -53,8 +53,7 @@ const hashName = name => {
 
 const applyFiltersFunctions = {
   assettype(entry, filter, taskMap) {
-    let isOk = true
-    isOk = filter.assetType && entry.asset_type_id === filter.assetType.id
+    let isOk = filter.assetType && entry.asset_type_id === filter.assetType.id
     if (filter.excluding) isOk = !isOk
     return isOk
   },
@@ -152,9 +151,17 @@ const applyFiltersFunctions = {
 
   status(entry, filter, taskMap) {
     const task = taskMap.get(entry.validations.get(filter.taskType.id))
-    let isOk = true
-    isOk = task && filter.taskStatuses.includes(task.task_status_id)
+    let isOk = task && filter.taskStatuses.includes(task.task_status_id)
     isOk = isOk || false
+    if (filter.excluding) isOk = !isOk
+    return isOk
+  },
+
+  statusAny(entry, filter, taskMap) {
+    let isOk = Array.from(entry.validations?.values() || []).some(taskId => {
+      const task = taskMap.get(taskId)
+      return task && filter.taskStatuses.includes(task.task_status_id)
+    })
     if (filter.excluding) isOk = !isOk
     return isOk
   },
@@ -435,6 +442,25 @@ export const getTaskTypeFilters = (taskTypes, taskStatuses, queryText) => {
       const excluding = value.startsWith('-')
       if (excluding) value = value.substring(1)
       const taskTypeName = cleanParenthesis(pattern[0])
+
+      // Cross-task-type status filter: status=WIP matches entries where ANY
+      // task is in one of the given statuses, regardless of the task type.
+      if (taskTypeName.toLowerCase() === 'status' && value) {
+        const values = value
+          .split(',')
+          .map(shortName => shortName.toLowerCase())
+          .filter(shortName => taskStatusShortNameIndex[shortName])
+          .map(shortName => taskStatusShortNameIndex[shortName].id)
+        if (values.length > 0) {
+          results.push({
+            taskStatuses: values,
+            type: 'statusAny',
+            excluding
+          })
+        }
+        return
+      }
+
       const taskTypes = taskTypeNameIndex[taskTypeName.toLowerCase()]
       if (taskTypes) {
         if (value === 'unassigned') {
@@ -481,7 +507,7 @@ export const getDescFilters = (descriptors, taskTypes, queryText) => {
   const rgxMatches = queryText.match(EQUAL_REGEX)
 
   if (rgxMatches) {
-    const descriptorNameIndex = buildNameIndex(descriptors, false)
+    const descriptorNameIndex = buildExactNameIndex(descriptors)
     rgxMatches.forEach(rgxMatch => {
       const pattern = rgxMatch.split('=')
       const descriptorName = cleanParenthesis(pattern[0])
@@ -525,7 +551,7 @@ export const getDepartmentFilters = (departments, queryText) => {
   const rgxMatches = queryText.match(EQUAL_PEOPLE_DEPARTMENT_REGEX)
 
   if (rgxMatches) {
-    const departmentNameIndex = buildNameIndex(departments, false)
+    const departmentNameIndex = buildExactNameIndex(departments)
 
     rgxMatches.forEach(rgxMatch => {
       const pattern = rgxMatch.split('=')

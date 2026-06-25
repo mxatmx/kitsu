@@ -16,9 +16,9 @@
       <table-metadata-header-menu
         ref="headerMetadataMenu"
         :is-edit-allowed="
-          isMetadataColumnEditAllowed(lastMetadaDataHeaderMenuDisplayed)
+          isMetadataColumnEditAllowed(lastMetadataHeaderMenuDisplayed)
         "
-        :is-sticked="stickedColumns[lastMetadaDataHeaderMenuDisplayed]"
+        :is-sticked="stickedColumns[lastMetadataHeaderMenuDisplayed]"
         @edit-clicked="onEditMetadataClicked()"
         @delete-clicked="onDeleteMetadataClicked()"
         @sort-by-clicked="onSortByMetadataClicked()"
@@ -28,7 +28,15 @@
       <table class="datatable multi-section">
         <thead class="datatable-head" v-columns-resizable id="datatable-asset">
           <tr>
-            <th ref="th-name" class="name datatable-row-header" scope="col">
+            <th
+              ref="th-name"
+              :class="{
+                name: true,
+                'datatable-row-header': true,
+                'datatable-row-header--nobd': hasStickyEpisode
+              }"
+              scope="col"
+            >
               <div class="flexrow">
                 <span class="flexrow-item">
                   {{ $t('assets.fields.name') }}
@@ -48,9 +56,10 @@
 
             <th
               scope="col"
-              class="episode"
+              class="episode datatable-row-header"
               ref="th-episode"
-              v-if="isTVShow && displaySettings.showInfos"
+              :style="{ left: `${nameWidth}px` }"
+              v-if="hasStickyEpisode"
             >
               {{ $t('assets.fields.episode') }}
             </th>
@@ -63,9 +72,6 @@
                 offsets['editor-' + j] ? `${offsets['editor-' + j]}px` : '0'
               "
               is-stick
-              :style="{
-                'z-index': 1001
-              }"
               @show-metadata-header-menu="
                 event => showMetadataHeaderMenu(descriptor.id, event)
               "
@@ -217,7 +223,7 @@
                 }"
                 namespace="assets"
                 v-model="metadataDisplayHeaders"
-                v-show="columnSelectorDisplayed"
+                v-model:is-open="columnSelectorDisplayed"
                 v-if="displaySettings.showInfos"
               />
 
@@ -237,10 +243,10 @@
             :key="'group-' + getGroupKey(group, k, 'asset_type_id')"
             @mousedown="startBrowsing"
             @touchstart="startBrowsing"
-            v-for="(group, k) in displayedAssets"
+            v-for="(group, k) in filteredDisplayedAssets"
           >
             <tr class="datatable-type-header" v-if="group[0]">
-              <th scope="rowgroup" :colspan="visibleColumns">
+              <th scope="rowgroup">
                 <span
                   class="datatable-row-header pointer"
                   @click="$emit('asset-type-clicked', group[0].asset_type_name)"
@@ -264,6 +270,7 @@
               <th
                 :class="{
                   'datatable-row-header': true,
+                  'datatable-row-header--nobd': hasStickyEpisode,
                   name: true,
                   bold: !asset.canceled
                 }"
@@ -290,7 +297,7 @@
                     class="asset-link asset-name flexrow-item"
                     :to="assetPath(asset.id)"
                     :title="asset.full_name"
-                    v-if="!asset.shared"
+                    v-if="!asset.shared && !isCurrentUserClient"
                   >
                     {{ asset.name }}
                   </router-link>
@@ -300,7 +307,11 @@
                 </div>
               </th>
 
-              <td class="episode" v-if="isTVShow && displaySettings.showInfos">
+              <td
+                class="episode datatable-row-header"
+                :style="{ left: `${nameWidth}px` }"
+                v-if="hasStickyEpisode"
+              >
                 <div class="flexrow" :title="assetEpisodes(asset, true)">
                   {{ assetEpisodes(asset, false) }}
                 </div>
@@ -311,7 +322,10 @@
                 class="metadata-descriptor datatable-row-header"
                 :title="asset.data ? asset.data[descriptor.field_name] : ''"
                 :style="{
-                  'z-index': 1000 - i - k * 100, // Needed for combo to be above the next cell
+                  'z-index':
+                    descriptor.data_type === 'taglist'
+                      ? 1000 - (getIndex(i, k) % 1000) // Needed for combo to be above the next cell
+                      : undefined,
                   left: offsets['editor-' + j]
                     ? `${offsets['editor-' + j]}px`
                     : '0'
@@ -547,41 +561,13 @@
         <p class="info">{{ $t('assets.empty_list_client') }}</p>
       </div>
 
-      <table-info :is-loading="isLoading" :is-error="isError" />
+      <table-info :is-loading="isLoading" :is-error="isError" big-cells />
     </div>
 
-    <p class="has-text-centered nb-assets" v-if="!isEmptyList && !isLoading">
-      {{ displayedAssetsLength }}
-      {{ $tc('assets.number', displayedAssetsLength) }}
-      <span
-        v-if="displayedAssetsTimeSpent > 0 || displayedAssetsEstimation > 0"
-      >
-        ({{ formatDuration(displayedAssetsTimeSpent) }}
-        {{
-          isDurationInHours
-            ? $tc(
-                'main.hours_spent',
-                formatDuration(displayedAssetsTimeSpent, false)
-              )
-            : $tc(
-                'main.days_spent',
-                formatDuration(displayedAssetsTimeSpent, false)
-              )
-        }},
-        {{ formatDuration(displayedAssetsEstimation) }}
-        {{
-          isDurationInHours
-            ? $tc(
-                'main.hours_estimated',
-                formatDuration(displayedAssetsEstimation, false)
-              )
-            : $tc(
-                'main.man_days',
-                formatDuration(displayedAssetsEstimation, false)
-              )
-        }})
-      </span>
-    </p>
+    <asset-list-numbers
+      :assets="assetCache.result"
+      v-if="!isEmptyList && !isLoading"
+    />
   </div>
 </template>
 
@@ -598,6 +584,7 @@ import preferences from '@/lib/preferences'
 import { sortTaskTypes } from '@/lib/sorting'
 import { range } from '@/lib/time'
 
+import AssetListNumbers from '@/components/widgets/AssetListNumbers.vue'
 import ButtonSimple from '@/components/widgets/ButtonSimple.vue'
 import ComboboxTaskType from '@/components/widgets/ComboboxTaskType.vue'
 import DescriptionCell from '@/components/cells/DescriptionCell.vue'
@@ -612,6 +599,7 @@ import TableMetadataSelectorMenu from '@/components/widgets/TableMetadataSelecto
 import ValidationCell from '@/components/cells/ValidationCell.vue'
 import ValidationHeader from '@/components/cells/ValidationHeader.vue'
 
+import assetStore from '@/store/modules/assets'
 import assetTypeStore from '@/store/modules/assettypes'
 import episodeStore from '@/store/modules/episodes'
 import taskTypeStore from '@/store/modules/tasktypes'
@@ -628,6 +616,7 @@ export default {
   ],
 
   components: {
+    AssetListNumbers,
     ButtonSimple,
     ComboboxTaskType,
     DescriptionCell,
@@ -694,7 +683,7 @@ export default {
       isSelectableMap: {},
       lastSelection: null,
       lastHeaderMenuDisplayed: null,
-      lastMetadaDataHeaderMenuDisplayed: null,
+      lastMetadataHeaderMenuDisplayed: null,
       lastHeaderMenuDisplayedIndexInGrid: null,
       metadataDisplayHeaders: {
         estimation: true,
@@ -713,8 +702,27 @@ export default {
         ['keyup', this.stopBrowsing]
       ],
       offsets: {},
+      nameWidth: 200,
+      nameResizeObserver: null,
       lastSelectedAsset: null
     }
+  },
+
+  mounted() {
+    this.$nextTick(() => {
+      const thName = this.$refs['th-name']
+      if (thName && typeof ResizeObserver !== 'undefined') {
+        this.nameResizeObserver = new ResizeObserver(() => {
+          this.nameWidth = thName.clientWidth
+          this.updateOffsets()
+        })
+        this.nameResizeObserver.observe(thName)
+      }
+    })
+  },
+
+  beforeUnmount() {
+    this.nameResizeObserver?.disconnect()
   },
 
   computed: {
@@ -728,9 +736,6 @@ export default {
       'currentEpisode',
       'currentProduction',
       'displayedAssetsCount',
-      'displayedAssetsLength',
-      'displayedAssetsTimeSpent',
-      'displayedAssetsEstimation',
       'nbSelectedTasks',
       'organisation',
       'isAssetDescription',
@@ -749,6 +754,10 @@ export default {
       'taskMap',
       'user'
     ]),
+
+    assetCache() {
+      return assetStore.cache
+    },
 
     assetTypeMap() {
       return assetTypeStore.cache.assetTypeMap
@@ -784,38 +793,44 @@ export default {
       return !this.isLoading && !this.isError && this.displayedAssetsCount > 0
     },
 
-    visibleColumns() {
-      let count = 1
-      count += this.isTVShow ? 1 : 0
-      count +=
-        !this.isCurrentUserClient &&
-        this.displaySettings.showInfos &&
-        this.isAssetDescription
-          ? 1
-          : 0
-      count += this.visibleMetadataDescriptors.length
-      count +=
-        !this.isCurrentUserClient &&
-        this.displaySettings.showInfos &&
-        this.isAssetTime &&
-        this.metadataDisplayHeaders.timeSpent
-          ? 1
-          : 0
-      count +=
-        !this.isCurrentUserClient &&
-        this.displaySettings.showInfos &&
-        this.isAssetEstimation &&
-        this.metadataDisplayHeaders.estimation
-          ? 1
-          : 0
-      count += this.displayedValidationColumns.length
-      return count
+    /**
+     * Map of task type id → true for columns considered "filled" for the
+     * displayed assets. A column counts as filled only when at least one
+     * displayed asset has a task whose type is part of the asset type's
+     * workflow.
+     *
+     * Tasks lingering on assets whose type no longer accepts that task
+     * type (workflow-change leftovers, asset type reassignments, etc.) are
+     * deliberately treated as if they did not exist, so the column hides
+     * instead of being kept visible by orphaned tasks the artist cannot
+     * actually edit.
+     */
+    inWorkflowFilledColumns() {
+      const filled = {}
+      const productionTaskTypeIds = this.productionAssetTaskTypes.map(t => t.id)
+      for (const typeGroup of this.displayedAssets) {
+        if (!typeGroup.length) continue
+        const assetType = this.assetTypeMap.get(typeGroup[0].asset_type_id)
+        const allowedTaskTypes = assetType?.task_types?.length
+          ? assetType.task_types
+          : productionTaskTypeIds
+        const allowedSet = new Set(allowedTaskTypes)
+        for (const asset of typeGroup) {
+          if (!asset.validations) continue
+          for (const columnId of asset.validations.keys()) {
+            if (!filled[columnId] && allowedSet.has(columnId)) {
+              filled[columnId] = true
+            }
+          }
+        }
+      }
+      return filled
     },
 
     displayedValidationColumns() {
       return this.validationColumns.filter(columnId => {
         return (
-          this.assetFilledColumns[columnId] &&
+          this.inWorkflowFilledColumns[columnId] &&
           (!this.hiddenColumns[columnId] || this.displaySettings.showInfos)
         )
       })
@@ -846,6 +861,37 @@ export default {
 
     formatDurationInHours() {
       return this.organisation.format_duration_in_hours
+    },
+
+    hasStickyEpisode() {
+      return this.isTVShow && this.displaySettings.showInfos
+    },
+
+    /** Filter the displayed assets by the display settings */
+    filteredDisplayedAssets() {
+      if (
+        this.displaySettings.showSharedAssets &&
+        this.displaySettings.showLinkedAssets
+      ) {
+        return this.displayedAssets
+      }
+      const episodeId = this.currentEpisode?.id
+
+      return this.displayedAssets.map(typeList =>
+        typeList.filter(asset => {
+          if (!this.displaySettings.showSharedAssets && asset.shared) {
+            return false
+          }
+          if (
+            this.isTVShow &&
+            !this.displaySettings.showLinkedAssets &&
+            !['all', asset.episode_id || 'main'].includes(episodeId)
+          ) {
+            return false
+          }
+          return true
+        })
+      )
     }
   },
 
@@ -909,7 +955,7 @@ export default {
 
     isSelected(indexInGroup, groupIndex, columnIndex) {
       const lineIndex = this.getIndex(indexInGroup, groupIndex)
-      return this.assetSelectionGrid[lineIndex][columnIndex]
+      return this.assetSelectionGrid.has(`${lineIndex}-${columnIndex}`)
     },
 
     toggleLine(asset, event) {
@@ -1019,8 +1065,8 @@ export default {
     },
 
     metadataStickColumnClicked(event) {
-      this.toggleStickedColumns(this.lastMetadaDataHeaderMenuDisplayed)
-      this.showMetadataHeaderMenu(this.lastMetadaDataHeaderMenuDisplayed, event)
+      this.toggleStickedColumns(this.lastMetadataHeaderMenuDisplayed)
+      this.showMetadataHeaderMenu(this.lastMetadataHeaderMenuDisplayed, event)
     },
 
     updateOffsets() {
@@ -1028,7 +1074,11 @@ export default {
         return
       }
       this.$nextTick(function () {
-        let offset = this.$refs['th-name'].clientWidth
+        this.nameWidth = this.$refs['th-name'].clientWidth
+        let offset = this.nameWidth
+        if (this.$refs['th-episode']) {
+          offset += this.$refs['th-episode'].clientWidth
+        }
         this.offsets = {}
 
         if (this.displaySettings.showInfos) {
@@ -1054,11 +1104,8 @@ export default {
   },
 
   watch: {
-    displayedAssets: {
-      deep: true,
-      handler() {
-        this.$options.lineIndex = {}
-      }
+    displayedAssets() {
+      this.$options.lineIndex = {}
     },
 
     validationColumns: {
@@ -1113,9 +1160,9 @@ export default {
   position: sticky;
 }
 
-.name {
+thead .name {
   min-width: 200px;
-  width: 200px;
+  width: 300px;
 }
 
 th.time-spent,
@@ -1140,8 +1187,8 @@ td.ready-for {
 }
 
 .episode {
-  min-width: 130px;
-  width: 130px;
+  min-width: 80px;
+  width: 80px;
 }
 
 .bold {
@@ -1224,7 +1271,10 @@ input[type='number'] {
 td.resolution,
 td.metadata-descriptor {
   height: 3.1rem;
-  max-width: 120px;
   padding: 0;
+}
+
+.metadata-value {
+  padding: 0.5rem 0.75rem;
 }
 </style>

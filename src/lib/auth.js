@@ -47,6 +47,15 @@ const auth = {
         } else {
           if (res.body.login) {
             const user = res.body.user
+            store.commit(USER_LOGIN, user)
+
+            if (res.body.two_factor_authentication_required) {
+              const err = new Error('Two-factor authentication required')
+              err.two_factor_authentication_required = true
+              callback(err)
+              return
+            }
+
             store.commit(DATA_LOADING_START)
             callback(null, user)
           } else {

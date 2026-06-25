@@ -6,7 +6,6 @@ import { sortTasks, sortByName } from '@/lib/sorting'
 import { indexSearch, buildTaskIndex } from '@/lib/indexing'
 import { getKeyWords } from '@/lib/filtering'
 import { populateTask } from '@/lib/models'
-import { buildSelectionGrid, clearSelectionGrid } from '@/lib/selection'
 
 import {
   coercePublicKeyFromJSON,
@@ -37,7 +36,6 @@ import {
   USER_LOAD_DONE_TASKS_END,
   USER_LOAD_TIME_SPENTS_END,
   REGISTER_USER_TASKS,
-  PERSON_SET_DAY_OFF,
   SET_TODOS_SEARCH,
   LOAD_USER_FILTERS_END,
   LOAD_USER_FILTERS_ERROR,
@@ -72,7 +70,9 @@ import {
   LOAD_CUSTOM_ACTIONS_END,
   LOAD_STATUS_AUTOMATIONS_END,
   LOAD_ASSET_TYPES_END,
+  LOAD_PLUGINS_END,
   SET_NOTIFICATION_COUNT,
+  SET_USER_LIMIT,
   LOAD_OPEN_PRODUCTIONS_END,
   RESET_ALL,
   SET_CURRENT_PRODUCTION
@@ -112,15 +112,17 @@ const initialState = {
   displayedTodos: [],
   displayedDoneTasks: [],
   todosSearchText: '',
-  doneSelectionGrid: {},
-  todoSelectionGrid: {},
+  doneSelectionGrid: new Set(),
+  todoSelectionGrid: new Set(),
   todoSearchQueries: [],
   userFilters: {},
   userFilterGroups: {},
   todoListScrollPosition: 0,
 
   timeSpentMap: {},
-  timeSpentTotal: 0
+  timeSpentTotal: 0,
+
+  plugins: []
 }
 
 const state = {
@@ -159,13 +161,19 @@ const getters = {
   todoListScrollPosition: state => state.todoListScrollPosition,
 
   timeSpentMap: state => state.timeSpentMap,
-  timeSpentTotal: state => state.timeSpentTotal
+  timeSpentTotal: state => state.timeSpentTotal,
+
+  plugins: state => state.plugins,
+  studioPlugins: state =>
+    state.plugins.filter(plugin => plugin.frontend_studio_enabled),
+  projectPlugins: state =>
+    state.plugins.filter(plugin => plugin.frontend_project_enabled)
 }
 
 const actions = {
   saveProfile({ commit, state }, payload) {
     commit(USER_SAVE_PROFILE_LOADING)
-    peopleApi
+    return peopleApi
       .updatePerson(payload.form)
       .then(() => {
         payload.form.id = state.user.id
@@ -174,6 +182,7 @@ const actions = {
       .catch(err => {
         console.error(err)
         commit(USER_SAVE_PROFILE_ERROR)
+        throw err
       })
   },
 
@@ -198,7 +207,7 @@ const actions = {
   enableTOTP({ commit }, totp) {
     return peopleApi.enableTOTP(totp).then(OTPRecoveryCodes => {
       commit(USER_ENABLE_TOTP_SUCCESS)
-      return Promise.resolve(OTPRecoveryCodes)
+      return OTPRecoveryCodes
     })
   },
 
@@ -207,7 +216,6 @@ const actions = {
       .disableTOTP(coerceTwoFactorPayload(twoFactorPayload))
       .then(() => {
         commit(USER_DISABLE_TOTP_SUCCESS)
-        return Promise.resolve()
       })
   },
 
@@ -218,7 +226,7 @@ const actions = {
   enableEmailOTP({ commit, state }, otp) {
     return peopleApi.enableEmailOTP(otp).then(OTPRecoveryCodes => {
       commit(USER_ENABLE_EMAIL_OTP_SUCCESS)
-      return Promise.resolve(OTPRecoveryCodes)
+      return OTPRecoveryCodes
     })
   },
 
@@ -231,14 +239,13 @@ const actions = {
       .disableEmailOTP(coerceTwoFactorPayload(twoFactorPayload))
       .then(() => {
         commit(USER_DISABLE_EMAIL_OTP_SUCCESS)
-        return Promise.resolve()
       })
   },
 
   preRegisterFIDO({ commit, state }) {
     return peopleApi
       .preRegisterFIDO()
-      .then(body => Promise.resolve(coercePublicKeyFromJSON(body)))
+      .then(body => coercePublicKeyFromJSON(body))
   },
 
   registerFIDO({ commit, state }, { registrationResponse, deviceName }) {
@@ -249,23 +256,19 @@ const actions = {
       )
       .then(OTPRecoveryCodes => {
         commit(USER_REGISTER_FIDO_SUCCESS, deviceName)
-        return Promise.resolve(OTPRecoveryCodes)
+        return OTPRecoveryCodes
       })
   },
 
   getFIDOChallenge({ commit, state }, email) {
     return peopleApi
       .getFIDOChallenge(email)
-      .then(body => Promise.resolve(coercePublicKeyFromJSON(body)))
+      .then(body => coercePublicKeyFromJSON(body))
   },
 
-  unregisterFIDO({ commit, state }, { twoFactorPayload, deviceName }) {
-    return peopleApi
-      .unregisterFIDO(coerceTwoFactorPayload(twoFactorPayload), deviceName)
-      .then(() => {
-        commit(USER_UNREGISTER_FIDO_SUCCESS, deviceName)
-        return Promise.resolve()
-      })
+  async unregisterFIDO({ commit }, { deviceName }) {
+    await peopleApi.unregisterFIDO(deviceName)
+    commit(USER_UNREGISTER_FIDO_SUCCESS, deviceName)
   },
 
   newRecoveryCodes({ commit, state }, twoFactorPayload) {
@@ -281,11 +284,9 @@ const actions = {
       try {
         const tasks = await peopleApi.loadTodos()
         const timeSpents = await peopleApi.loadTimeSpents(date)
-        const dayOff = await peopleApi.getDayOff(state.user.id, date)
         commit(USER_LOAD_TODOS_END, { tasks, userFilters, taskTypeMap })
         commit(REGISTER_USER_TASKS, { tasks })
         commit(USER_LOAD_TIME_SPENTS_END, timeSpents)
-        commit(PERSON_SET_DAY_OFF, dayOff)
         return tasks
       } catch (err) {
         console.error(err)
@@ -312,8 +313,8 @@ const actions = {
     return tasks
   },
 
-  async uploadAvatar({ commit, state }) {
-    await peopleApi.postAvatar(state.user.id, state.avatarFormData)
+  async uploadAvatar({ commit, state }, formData) {
+    await peopleApi.postAvatar(state.user.id, formData || state.avatarFormData)
     commit(UPLOAD_AVATAR_END, state.user.id)
   },
 
@@ -387,11 +388,13 @@ const actions = {
       commit(LOAD_STATUS_AUTOMATIONS_END, context.status_automations)
       commit(LOAD_ASSET_TYPES_END, context.asset_types)
       commit(SET_NOTIFICATION_COUNT, context.notification_count)
+      commit(SET_USER_LIMIT, context.user_limit)
       commit(LOAD_OPEN_PRODUCTIONS_END, context.projects)
       if (rootGetters.currentProduction) {
         commit(SET_CURRENT_PRODUCTION, rootGetters.currentProduction.id)
       }
       commit(LOAD_TASK_TYPES_END, context.task_types)
+      commit(LOAD_PLUGINS_END, context.plugins)
     })
   }
 }
@@ -556,7 +559,7 @@ const mutations = {
       const taskStatus = helpers.getTaskStatus(task.task_status_id)
       task.taskStatus = taskStatus
     })
-    state.todoSelectionGrid = buildSelectionGrid(tasks.length, 1)
+    state.todoSelectionGrid = new Set()
     state.todos = sortTasks(tasks, taskTypeMap)
     state.todoMap = new Map(tasks.map(task => [task.id, task]))
     cache.todosIndex = buildTaskIndex(tasks)
@@ -578,7 +581,7 @@ const mutations = {
       const taskStatus = helpers.getTaskStatus(task.task_status_id)
       task.taskStatus = taskStatus
     })
-    state.doneSelectionGrid = buildSelectionGrid(tasks.length, 1)
+    state.doneSelectionGrid = new Set()
     cache.doneIndex = buildTaskIndex(tasks)
     cache.doneTasks = tasks
     state.displayedDoneTasks = tasks
@@ -644,39 +647,29 @@ const mutations = {
   },
 
   [ADD_SELECTED_TASK](state, validationInfo) {
-    if (
-      validationInfo.done &&
-      state.doneSelectionGrid &&
-      state.doneSelectionGrid[validationInfo.x]
-    ) {
-      state.doneSelectionGrid[validationInfo.x][validationInfo.y] = true
-    } else if (
-      state.todoSelectionGrid &&
-      state.todoSelectionGrid[validationInfo.x]
-    ) {
-      state.todoSelectionGrid[validationInfo.x][validationInfo.y] = true
+    const key = `${validationInfo.x}-${validationInfo.y}`
+    if (validationInfo.done) {
+      state.doneSelectionGrid.add(key)
+    } else {
+      state.todoSelectionGrid.add(key)
     }
   },
 
   [REMOVE_SELECTED_TASK](state, validationInfo) {
-    if (
-      validationInfo.done &&
-      state.doneSelectionGrid &&
-      state.doneSelectionGrid[validationInfo.x]
-    ) {
-      state.doneSelectionGrid[validationInfo.x][validationInfo.y] = false
-    } else if (
-      state.todoSelectionGrid &&
-      state.todoSelectionGrid[validationInfo.x]
-    ) {
-      state.todoSelectionGrid[validationInfo.x][validationInfo.y] = false
+    const key = `${validationInfo.x}-${validationInfo.y}`
+    if (validationInfo.done) {
+      state.doneSelectionGrid.delete(key)
+    } else {
+      state.todoSelectionGrid.delete(key)
     }
   },
 
   [CLEAR_SELECTED_TASKS](state) {
-    if (Object.keys(state.todoSelectionGrid).length > 0) {
-      state.todoSelectionGrid = clearSelectionGrid(state.todoSelectionGrid)
-      state.doneSelectionGrid = clearSelectionGrid(state.doneSelectionGrid)
+    for (const key of state.todoSelectionGrid) {
+      state.todoSelectionGrid.delete(key)
+    }
+    for (const key of state.doneSelectionGrid) {
+      state.doneSelectionGrid.delete(key)
     }
   },
 
@@ -824,6 +817,10 @@ const mutations = {
     }
   },
 
+  [LOAD_PLUGINS_END](state, plugins = []) {
+    state.plugins = plugins
+  },
+
   [CLEAR_AVATAR](state, userId) {
     if (state.user.id === userId) {
       state.user.has_avatar = false
@@ -839,7 +836,6 @@ const mutations = {
 }
 
 export default {
-  namespace: true,
   state,
   getters,
   actions,

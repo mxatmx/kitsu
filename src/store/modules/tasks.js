@@ -1,4 +1,4 @@
-import async from 'async'
+import * as Sentry from '@sentry/vue'
 
 import tasksApi from '@/store/api/tasks'
 import peopleApi from '@/store/api/people'
@@ -8,7 +8,7 @@ import {
   sortRevisionPreviewFiles,
   sortByName
 } from '@/lib/sorting'
-import { arrayMove, removeModelFromList } from '@/lib/models'
+import { arrayMove, populateTask, removeModelFromList } from '@/lib/models'
 import func from '@/lib/func'
 
 import assetStore from '@/store/modules/assets'
@@ -39,6 +39,7 @@ import {
   DELETE_TASK_END,
   EDIT_COMMENT_END,
   DELETE_COMMENT_END,
+  MOVE_COMMENT_END,
   PIN_COMMENT,
   ACK_COMMENT,
   REMOVE_TASK_COMMENT,
@@ -119,6 +120,19 @@ const helpers = {
 
   getTaskStatus(taskStatusId) {
     return taskStatusStore.cache.taskStatusMap.get(taskStatusId)
+  },
+
+  // Fall back to the API-embedded author since guests aren't in personMap.
+  resolveAuthor(personId, embedded) {
+    const person = personStore.cache.personMap.get(personId) || embedded
+    return personStore.helpers.addAdditionalInformation(person)
+  },
+
+  enrichCommentAuthors(comment) {
+    comment.person = helpers.resolveAuthor(comment.person_id, comment.person)
+    comment.replies?.forEach(reply => {
+      reply.person = helpers.resolveAuthor(reply.person_id, reply.person)
+    })
   }
 }
 
@@ -313,33 +327,15 @@ const actions = {
     )
   },
 
-  deleteSelectedTasks({ commit, state }) {
-    return new Promise((resolve, reject) => {
-      const selectedTaskIds = Array.from(state.selectedTasks.keys())
-      async.eachSeries(
-        selectedTaskIds,
-        (taskId, next) => {
-          const task = state.taskMap.get(taskId)
-          if (task) {
-            tasksApi
-              .deleteTask(task)
-              .then(() => {
-                commit(DELETE_TASK_END, task)
-                next()
-              })
-              .catch(next)
-          } else {
-            next()
-          }
-        },
-        err => {
-          if (err) reject(err)
-          else {
-            resolve()
-          }
-        }
-      )
-    })
+  async deleteSelectedTasks({ commit, state }) {
+    const selectedTaskIds = Array.from(state.selectedTasks.keys())
+    for (const taskId of selectedTaskIds) {
+      const task = state.taskMap.get(taskId)
+      if (task) {
+        await tasksApi.deleteTask(task)
+        commit(DELETE_TASK_END, task)
+      }
+    }
   },
 
   deleteAllTasks({}, { projectId, taskTypeId, taskIds }) {
@@ -401,33 +397,16 @@ const actions = {
       })
   },
 
-  changeSelectedPriorities(
-    { commit, state, rootGetters },
-    { priority, callback }
-  ) {
+  async changeSelectedPriorities({ commit, state, rootGetters }, { priority }) {
     const selectedTaskIds = Array.from(state.selectedTasks.keys())
-    async.eachSeries(
-      selectedTaskIds,
-      (taskId, next) => {
-        const task = state.taskMap.get(taskId)
+    for (const taskId of selectedTaskIds) {
+      const task = state.taskMap.get(taskId)
+      if (task && task.priority !== priority) {
         const taskType = rootGetters.taskTypeMap.get(task.task_type_id)
-
-        if (task && task.priority !== priority) {
-          tasksApi
-            .updateTask(taskId, { priority })
-            .then(task => {
-              commit(EDIT_TASK_END, { task, taskType })
-              next()
-            })
-            .catch(next)
-        } else {
-          next()
-        }
-      },
-      err => {
-        callback(err)
+        const updatedTask = await tasksApi.updateTask(taskId, { priority })
+        commit(EDIT_TASK_END, { task: updatedTask, taskType })
       }
-    )
+    }
   },
 
   updateTask({ commit }, { taskId, data }) {
@@ -457,11 +436,31 @@ const actions = {
     })
   },
 
+  moveCommentToTask({ commit }, { taskId, commentId, targetTaskId }) {
+    return tasksApi
+      .moveCommentToTask(taskId, commentId, targetTaskId)
+      .then(comment => {
+        commit(MOVE_COMMENT_END, {
+          sourceTaskId: taskId,
+          targetTaskId,
+          comment
+        })
+        return comment
+      })
+  },
+
   commentTask(
     { commit },
-    { taskId, taskStatusId, comment, attachment, checklist }
+    { taskId, taskStatusId, comment, attachment, checklist, forClient }
   ) {
-    const data = { taskId, taskStatusId, comment, attachment, checklist }
+    const data = {
+      taskId,
+      taskStatusId,
+      comment,
+      attachment,
+      checklist,
+      forClient
+    }
     return tasksApi.commentTask(data).then(comment => {
       commit(NEW_TASK_COMMENT_END, { comment, taskId })
       return comment
@@ -478,10 +477,19 @@ const actions = {
       comment,
       form,
       revision,
-      links
+      links,
+      forClient
     }
   ) {
-    const data = { taskId, taskStatusId, comment, attachment, checklist, links }
+    const data = {
+      taskId,
+      taskStatusId,
+      comment,
+      attachment,
+      checklist,
+      links,
+      forClient
+    }
     const previewForms = [...state.previewForms]
     commit(ADD_PREVIEW_START)
     let newComment
@@ -635,6 +643,7 @@ const actions = {
   setLastTaskPreview({ commit, state }, taskId) {
     const taskMap = state.taskMap
     return tasksApi.setLastTaskPreviewAsEntityThumbnail(taskId).then(entity => {
+      if (!entity) return
       commit(SET_PREVIEW, {
         taskId,
         entityId: entity.id,
@@ -659,10 +668,18 @@ const actions = {
         return preview
       })
       .catch(err => {
-        console.error(err)
-        alert(
-          'An error occurred while saving your annotation, please wait 3s for another try.'
-        )
+        Sentry.captureException(err, {
+          tags: { feature: 'annotations' },
+          extra: {
+            previewId: preview?.id,
+            taskId,
+            additionsCount: additions?.length || 0,
+            updatesCount: updates?.length || 0,
+            deletionsCount: deletions?.length || 0,
+            status: err?.response?.status
+          }
+        })
+        throw err
       })
   },
 
@@ -679,8 +696,20 @@ const actions = {
 
   assignSelectedTasks({ commit, state }, { personId, taskIds }) {
     const selectedTaskIds = taskIds || Array.from(state.selectedTasks.keys())
-    return tasksApi.assignTasks(personId, selectedTaskIds).then(() => {
-      commit(ASSIGN_TASKS, { selectedTaskIds, personId })
+    return tasksApi.assignTasks(personId, selectedTaskIds).then(response => {
+      const successfulTaskIds = response.map(task => task.id)
+      const failedTaskIds = selectedTaskIds.filter(
+        taskId => !successfulTaskIds.includes(taskId)
+      )
+      commit(ASSIGN_TASKS, { taskIds: successfulTaskIds, personId })
+      if (failedTaskIds.length) {
+        const error = new Error(
+          `Failed to assign ${failedTaskIds.length} task(s). Task IDs: ${failedTaskIds.join(', ')}`
+        )
+        error.failedTaskIds = failedTaskIds
+        error.successfulTaskIds = successfulTaskIds
+        throw error
+      }
     })
   },
 
@@ -796,6 +825,14 @@ const actions = {
     return tasksApi.pinComment(comment)
   },
 
+  toggleCommentForClient({ commit }, comment) {
+    const next = !comment.for_client
+    return tasksApi.updateCommentForClient(comment.id, next).then(updated => {
+      commit(UPDATE_COMMENT_REPLIES, updated)
+      return updated
+    })
+  },
+
   refreshComment({ commit }, { commentId }) {
     return tasksApi.getTaskComment({ id: commentId }).then(comment => {
       commit(UPDATE_COMMENT_REPLIES, comment)
@@ -869,9 +906,7 @@ const mutations = {
   },
 
   [LOAD_TASK_COMMENTS_END](state, { taskId, comments }) {
-    comments.forEach(comment => {
-      comment.person = personStore.cache.personMap.get(comment.person_id)
-    })
+    comments.forEach(comment => helpers.enrichCommentAuthors(comment))
     state.taskComments[taskId] = sortComments([...comments])
     state.taskPreviews[taskId] = comments.reduce((previews, comment) => {
       if (comment.previews && comment.previews.length > 0) {
@@ -917,14 +952,7 @@ const mutations = {
       comment.task_status = helpers.getTaskStatus(comment.task_status_id)
     }
 
-    if (comment.person === undefined) {
-      const getPerson = personStore.getters.getPerson(personStore.state)
-      comment.person = getPerson(comment.person_id)
-    }
-
-    comment.person = personStore.helpers.addAdditionalInformation(
-      comment.person
-    )
+    helpers.enrichCommentAuthors(comment)
 
     if (!taskId) {
       taskId = comment.object_id
@@ -1012,6 +1040,28 @@ const mutations = {
     })
   },
 
+  [MOVE_COMMENT_END](state, { sourceTaskId, targetTaskId, comment }) {
+    const sourceComments = state.taskComments[sourceTaskId]
+    if (sourceComments) {
+      state.taskComments[sourceTaskId] = sourceComments.filter(
+        c => c.id !== comment.id
+      )
+    }
+    if (state.taskComments[targetTaskId]) {
+      const enriched = {
+        ...comment,
+        person: personStore.cache.personMap.get(comment.person_id),
+        task_status: taskStatusStore.cache.taskStatusMap.get(
+          comment.task_status_id
+        )
+      }
+      state.taskComments[targetTaskId] = sortComments([
+        ...state.taskComments[targetTaskId].filter(c => c.id !== comment.id),
+        enriched
+      ])
+    }
+  },
+
   [PREVIEW_FILE_SELECTED](state, forms) {
     state.previewForms = forms
   },
@@ -1084,7 +1134,9 @@ const mutations = {
           }
         })
         if (p.id === preview.id) {
-          p.annotations = annotations
+          if (annotations) {
+            p.annotations = annotations
+          }
           p.status = preview.status
         }
       })
@@ -1216,8 +1268,8 @@ const mutations = {
     }
   },
 
-  [ASSIGN_TASKS](state, { selectedTaskIds, personId }) {
-    selectedTaskIds.forEach(taskId => {
+  [ASSIGN_TASKS](state, { taskIds, personId }) {
+    taskIds.forEach(taskId => {
       const task = state.taskMap.get(taskId)
       if (task && !task.assignees.find(assigneeId => assigneeId === personId)) {
         task.assignees.push(personId)
@@ -1226,8 +1278,8 @@ const mutations = {
     })
   },
 
-  [UNASSIGN_TASKS](state, selectedTaskIds) {
-    selectedTaskIds.forEach(taskId => {
+  [UNASSIGN_TASKS](state, taskIds) {
+    taskIds.forEach(taskId => {
       const task = state.taskMap.get(taskId)
       if (task) {
         task.assignees = []
@@ -1265,6 +1317,7 @@ const mutations = {
         const person = helpers.getPerson(task.last_comment.person_id)
         task.last_comment.person = person
       }
+      populateTask(task)
       state.taskMap.set(task.id, task)
     })
   },
@@ -1275,6 +1328,7 @@ const mutations = {
         const person = helpers.getPerson(task.last_comment.person_id)
         task.last_comment.person = person
       }
+      populateTask(task)
       state.taskMap.set(task.id, task)
     })
   },
@@ -1318,6 +1372,7 @@ const mutations = {
   [ADD_REPLY_TO_COMMENT](state, { comment, reply }) {
     if (!comment.replies) comment.replies = []
     if (!comment.replies.find(r => r.id === reply.id)) {
+      reply.person = helpers.resolveAuthor(reply.person_id, reply.person)
       comment.replies.push(reply)
       comment.attachment_files = [
         ...(comment.attachment_files || []),
@@ -1354,6 +1409,19 @@ const mutations = {
       )
       localComment.replies = comment.replies
     }
+  },
+
+  BLANK_COMMENT_CONTENT(state, { taskId, commentId }) {
+    if (!state.taskComments[taskId]) return
+    const localComment = state.taskComments[taskId].find(
+      c => c.id === commentId
+    )
+    if (!localComment) return
+    localComment.text = ''
+    localComment.attachment_files = []
+    localComment.checklist = []
+    localComment.replies = []
+    localComment.for_client = false
   },
 
   [ADD_ATTACHMENT_TO_COMMENT](state, { comment, attachmentFiles }) {

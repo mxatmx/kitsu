@@ -109,6 +109,7 @@
           :done-tasks="loggableDoneTasks"
           :is-loading="loading.timesheets || isTodosLoading"
           :is-error="isTodosLoadingError"
+          :days-off="daysOff"
           :day-off-error="dayOffError"
           :time-spent-map="timeSpentMap"
           :time-spent-total="timeSpentTotal"
@@ -343,13 +344,13 @@ export default {
 
     loggableTodos() {
       return this.sortedTasks.filter(task => {
-        return this.taskTypeMap.get(task.task_type_id).allow_timelog
+        return this.taskTypeMap.get(task.task_type_id)?.allow_timelog
       })
     },
 
     loggableDoneTasks() {
       return this.sortedDoneTasks.filter(task => {
-        return this.taskTypeMap.get(task.task_type_id).allow_timelog
+        return this.taskTypeMap.get(task.task_type_id)?.allow_timelog
       })
     },
 
@@ -457,6 +458,7 @@ export default {
       } else {
         this.$router.push({
           query: {
+            ...this.$route.query,
             productionId: this.productionId,
             section: this.currentSection
           }
@@ -514,7 +516,7 @@ export default {
       await this.loadData(true)
     },
 
-    async onUnsetDayOff(dayOff = null) {
+    async onUnsetDayOff(dayOff) {
       this.dayOffError = false
       try {
         await this.unsetDayOff(dayOff)
@@ -634,6 +636,7 @@ export default {
     productionId() {
       this.$router.push({
         query: {
+          ...this.$route.query,
           productionId: this.productionId,
           section: this.currentSection
         }

@@ -1,166 +1,146 @@
 <template>
   <div class="profile page">
     <div class="profile-content">
-      <div class="has-text-centered profile-header">
-        <div class="profile-header-content has-text-centered">
-          <people-avatar
-            :is-lazy="false"
-            :person="user"
-            :size="150"
-            :font-size="60"
+      <header class="profile-header">
+        <people-avatar
+          :is-lazy="false"
+          :person="user"
+          :size="120"
+          :font-size="48"
+        />
+        <h1 class="profile-name">{{ user.full_name }}</h1>
+        <p class="profile-role" v-if="user.role">
+          {{ $t(`people.role.${user.role}`) }}
+        </p>
+        <div class="profile-avatar-actions">
+          <button class="link-button" @click="showAvatarModal">
+            {{ $t('profile.change_avatar') }}
+          </button>
+          <span class="dot">·</span>
+          <button class="link-button muted" @click="removeAvatar">
+            {{ $t('profile.clear_avatar') }}
+          </button>
+        </div>
+      </header>
+
+      <card
+        :title="$t('profile.info_title')"
+        :error="errors.info ? $t('profile.save.error') : ''"
+        :save-label="$t('profile.save.button')"
+        :loading="loading.info"
+        @save="saveInfo"
+      >
+        <div class="grid-two">
+          <text-field
+            :label="$t('people.fields.first_name')"
+            :disabled="user.is_generated_from_ldap"
+            v-model="form.first_name"
           />
-
-          <p>
-            <button
-              class="button is-link change-avatar-button"
-              @click="showAvatarModal"
-            >
-              {{ $t('profile.change_avatar') }}
-            </button>
-          </p>
-          <p>
-            <button
-              class="button is-link clear-avatar-button"
-              @click="removeAvatar"
-            >
-              {{ $t('profile.clear_avatar') }}
-            </button>
-          </p>
-          <h1>
-            {{ $t('profile.title') }}
-          </h1>
+          <text-field
+            :label="$t('people.fields.last_name')"
+            :disabled="user.is_generated_from_ldap"
+            v-model="form.last_name"
+          />
+          <text-field
+            :label="$t('people.fields.email')"
+            :disabled="user.is_generated_from_ldap"
+            v-model="form.email"
+          />
+          <text-field :label="$t('people.fields.phone')" v-model="form.phone" />
         </div>
-      </div>
-
-      <div class="profile-body">
-        <h2>
-          {{ $t('profile.info_title') }}
-        </h2>
-        <text-field
-          :label="$t('people.fields.first_name')"
-          :disabled="user.is_generated_from_ldap"
-          v-model="form.first_name"
-        />
-        <text-field
-          :label="$t('people.fields.last_name')"
-          :disabled="user.is_generated_from_ldap"
-          v-model="form.last_name"
-        />
-        <text-field
-          :label="$t('people.fields.email')"
-          :disabled="user.is_generated_from_ldap"
-          v-model="form.email"
-        />
-        <text-field :label="$t('people.fields.phone')" v-model="form.phone" />
-        <div class="field">
-          <label class="label">
-            {{ $t('profile.timezone') }}
-          </label>
-          <span class="select is-medium">
-            <select v-model="form.timezone">
-              <option :key="timezone" v-for="timezone in timezones">
-                {{ timezone }}
-              </option>
-            </select>
-          </span>
+        <div class="grid-two">
+          <combobox
+            :label="$t('profile.timezone')"
+            :options="timezoneOptions"
+            v-model="form.timezone"
+          />
+          <combobox
+            :label="$t('profile.language')"
+            :options="localeOptions"
+            v-model="form.locale"
+            @update:model-value="localeChanged"
+          />
+          <combobox
+            :label="$t('people.fields.country')"
+            :options="countryOptions"
+            v-model="form.country"
+            v-if="user.role !== 'client' && !user.is_guest"
+          />
         </div>
-        <div class="field">
-          <label class="label">
-            {{ $t('profile.language') }}
-          </label>
-          <span class="select is-medium">
-            <select
-              v-model="form.locale"
-              :value="form.locale"
-              @change="localeChanged"
-            >
-              <option value="zh_Hans_CN">Chinese</option>
-              <option value="zh_Hant_TW">Chinese (TC)</option>
-              <option value="da_DA">Dannish</option>
-              <option value="nl_NL">Dutch</option>
-              <option value="en_US">English</option>
-              <option value="fr_FR">French</option>
-              <option value="de_DE">German</option>
-              <option value="hu_HU">Hungarian</option>
-              <option value="ja_JP">Japanese</option>
-              <option value="ko_KR">Korean</option>
-              <option value="pt_BR">Portuguese (Brasilian)</option>
-              <option value="fa_IR">Persian</option>
-              <option value="es_ES">Spanish</option>
-              <option value="ru_RU">Russian</option>
-            </select>
-          </span>
-        </div>
+      </card>
 
-        <div class="field">
-          <combobox-boolean
+      <card
+        :title="$t('profile.notifications_title')"
+        :error="errors.notifications ? $t('profile.save.error') : ''"
+        :save-label="$t('profile.save.button')"
+        :loading="loading.notifications"
+        @save="saveNotifications"
+      >
+        <div class="toggle-row">
+          <checkbox
+            :toggle="true"
             :label="$t('profile.notifications_enabled')"
             v-model="form.notifications_enabled"
           />
         </div>
 
-        <div class="field">
-          <combobox-boolean
+        <div class="channel">
+          <checkbox
+            :toggle="true"
             :label="$t('profile.notifications_slack_enabled')"
             v-model="form.notifications_slack_enabled"
           />
+          <text-field
+            :label="$t('profile.notifications_slack_user')"
+            v-model="form.notifications_slack_userid"
+            v-if="form.notifications_slack_enabled"
+          />
         </div>
 
-        <text-field
-          :label="$t('profile.notifications_slack_user')"
-          v-model="form.notifications_slack_userid"
-          v-if="form.notifications_slack_enabled === 'true'"
-        />
-
-        <div class="field">
-          <combobox-boolean
+        <div class="channel">
+          <checkbox
+            :toggle="true"
             :label="$t('profile.notifications_mattermost_enabled')"
             v-model="form.notifications_mattermost_enabled"
           />
-        </div>
-
-        <text-field
-          :label="$t('profile.notifications_mattermost_user')"
-          v-model="form.notifications_mattermost_userid"
-          v-if="form.notifications_mattermost_enabled === 'true'"
-        />
-
-        <div class="field">
-          <combobox-boolean
-            :label="$t('profile.notifications_discord_enabled')"
-            v-model="form.notifications_discord_enabled"
+          <text-field
+            :label="$t('profile.notifications_mattermost_user')"
+            v-model="form.notifications_mattermost_userid"
+            v-if="form.notifications_mattermost_enabled"
           />
         </div>
 
-        <text-field
-          :label="$t('profile.notifications_discord_user')"
-          v-model="form.notifications_discord_userid"
-          v-if="form.notifications_discord_enabled === 'true'"
-        />
+        <div class="channel">
+          <checkbox
+            :toggle="true"
+            :label="$t('profile.notifications_discord_enabled')"
+            v-model="form.notifications_discord_enabled"
+          />
+          <text-field
+            :label="$t('profile.notifications_discord_user')"
+            v-model="form.notifications_discord_userid"
+            v-if="form.notifications_discord_enabled"
+          />
+        </div>
+      </card>
 
-        <button
-          :class="{
-            button: true,
-            'save-button': true,
-            'is-medium': true,
-            'is-loading': isSaveProfileLoading
-          }"
-          @click="saveProfile({ form: form })"
-        >
-          {{ $t('profile.save.button') }}
-        </button>
-        <p
-          :class="{
-            error: true,
-            'is-hidden': !isSaveProfileLoadingError
-          }"
-        >
-          {{ $t('profile.save.error') }}
-        </p>
-
-        <h2>
-          {{ $t('profile.password_title') }}
-        </h2>
+      <card
+        :title="$t('profile.password_title')"
+        :error="
+          !changePassword.isValid
+            ? $t('profile.change_password.unvalid')
+            : changePassword.isError
+              ? $t('profile.change_password.error')
+              : ''
+        "
+        :success="
+          changePassword.isSuccess ? $t('profile.change_password.success') : ''
+        "
+        :save-label="$t('profile.change_password.button')"
+        :loading="changePassword.isLoading"
+        :disabled="user.is_generated_from_ldap"
+        @save="passwordChangeRequested"
+      >
         <text-field
           autocomplete="current-password"
           :label="$t('people.fields.old_password')"
@@ -182,392 +162,11 @@
           type="password"
           v-model="passwordForm.password2"
         />
+      </card>
 
-        <button
-          :class="{
-            button: true,
-            'save-button': true,
-            'is-medium': true,
-            'is-loading': changePassword.isLoading
-          }"
-          :disabled="user.is_generated_from_ldap"
-          @click="passwordChangeRequested()"
-        >
-          {{ $t('profile.change_password.button') }}
-        </button>
-
-        <p
-          :class="{
-            'show-message': true,
-            error: true,
-            'is-hidden': changePassword.isValid
-          }"
-        >
-          {{ $t('profile.change_password.unvalid') }}
-        </p>
-
-        <p
-          :class="{
-            'show-message': true,
-            success: true,
-            'is-hidden': !changePassword.isSuccess
-          }"
-        >
-          {{ $t('profile.change_password.success') }}
-        </p>
-
-        <p
-          :class="{
-            'show-message': true,
-            error: true,
-            'is-hidden': !changePassword.isError
-          }"
-        >
-          {{ $t('profile.change_password.error') }}
-        </p>
-
-        <h2>
-          {{ $t('profile.two_factor_authentication.title') }}
-        </h2>
-        <p v-if="twoFAButtonsDisabled" class="cancel-two-factor-action">
-          <a @click="cancelCurrentTwoFactorAuthAction">
-            <x-circle-icon :size="20" />
-          </a>
-        </p>
-
-        <div v-if="twoFA.TOTPPreEnabled" class="qrcode-informations">
-          <p>
-            {{ $t('profile.two_factor_authentication.scan_qrcode') }}
-          </p>
-
-          <qrcode-vue
-            class="qrcode"
-            :value="twoFA.TOTPProvisionningUri"
-            :size="300"
-            level="M"
-          />
-
-          <text-field
-            :label="$t('profile.two_factor_authentication.otp_secret')"
-            :readonly="true"
-            type="text"
-            v-model="twoFA.OTPSecret"
-            v-if="twoFA.OTPSecret"
-          />
-        </div>
-
-        <div
-          class="field"
-          v-if="twoFA.TOTPPreEnabled || twoFA.emailOTPPreEnabled"
-        >
-          <p class="control has-icon">
-            <input
-              class="input is-medium otp-input"
-              type="text"
-              v-model="twoFA.validationOTP"
-              @keyup.enter="nextEnable"
-              :placeholder="placeholderInputEnableOTP"
-              v-focus
-            />
-            <span class="icon">
-              <lock-icon :size="20" />
-            </span>
-          </p>
-        </div>
-
-        <div v-if="twoFA.OTPRecoveryCodes">
-          <label class="label label-recovery-codes">
-            {{ $t('profile.two_factor_authentication.recovery_codes.title') }}
-          </label>
-          <x-circle-icon
-            class="action-icon"
-            :size="20"
-            @click="cancelCurrentTwoFactorAuthAction"
-          />
-          <save-icon
-            class="action-icon"
-            :size="20"
-            @click="saveRecoveryCodesToFile"
-          />
-          <copy-icon
-            class="action-icon"
-            :size="20"
-            @click="copyRecoveryCodesToClipboard"
-          />
-          <textarea
-            class="input recovery-codes"
-            v-text="twoFA.OTPRecoveryCodes.join('\t')"
-            readonly
-          ></textarea>
-
-          <p
-            :class="{
-              'show-message': true,
-              error: true,
-              'recovery-codes-warning': true
-            }"
-          >
-            {{ $t('profile.two_factor_authentication.recovery_codes.warning') }}
-          </p>
-        </div>
-
-        <two-factor-authentication
-          v-else-if="twoFAVerificationNeeded"
-          :preferred-two-fa="user.preferred_two_factor_authentication"
-          :two-fas-enabled="twoFAsEnabled"
-          :is-loading="twoFA.isLoading"
-          :email="user.email"
-          :text-validate-button="textValidateTwoFA"
-          :is-disable-button="validateTwoFAIsDisable"
-          :is-wrong-otp="twoFA.error.isWrongOTP"
-          :is-profile="true"
-          @validate="nextWithPayload"
-          @changed-two-fa="changedTwoFA"
-        />
-
-        <button
-          v-if="twoFA.TOTPPreEnabled || twoFA.emailOTPPreEnabled"
-          :class="{
-            'two-fa-button': true,
-            button: true,
-            'save-button': true,
-            'is-medium': true,
-            'is-loading': twoFA.isLoading
-          }"
-          @click="nextEnable()"
-        >
-          {{ textValidateNewTwoFA }}
-        </button>
-
-        <p
-          :class="{
-            'show-message-2fa': true,
-            error: true,
-            'is-hidden': !(
-              twoFA.error.isWrongOTP &&
-              (twoFA.TOTPPreEnabled || twoFA.emailOTPPreEnabled)
-            )
-          }"
-        >
-          {{ textWrongOTPError }}
-        </p>
-
-        <div class="field" v-if="twoFA.FIDOPreRegistered">
-          <p class="control has-icon">
-            <input
-              class="input is-medium otp-input"
-              type="text"
-              v-model="twoFA.FIDONewDeviceName"
-              @keyup.enter="registerFIDORequested"
-              :placeholder="
-                $t('profile.two_factor_authentication.fido.device_name')
-              "
-              v-focus
-            />
-            <span class="icon">
-              <key-icon :size="20" />
-            </span>
-          </p>
-        </div>
-
-        <button
-          v-if="twoFA.FIDOPreRegistered"
-          :class="{
-            'two-fa-button': true,
-            button: true,
-            'save-button': true,
-            'is-medium': true,
-            'is-loading': twoFA.isLoading
-          }"
-          @click="registerFIDORequested()"
-        >
-          {{ $t('profile.two_factor_authentication.fido.button_register') }}
-        </button>
-
-        <p
-          :class="{
-            'show-message-2fa': true,
-            error: true,
-            'is-hidden': !twoFA.error.registerFIDO
-          }"
-        >
-          {{ $t('profile.two_factor_authentication.fido.error_register') }}
-        </p>
-
-        <button
-          v-if="!user.totp_enabled && !twoFA.TOTPPreEnabled"
-          :class="{
-            'two-fa-button': true,
-            button: true,
-            'save-button': true,
-            'is-medium': true,
-            'is-disabled': twoFAButtonsDisabled,
-            'is-loading': twoFA.isLoading
-          }"
-          @click="preEnableTOTPRequested()"
-        >
-          {{ $t('profile.two_factor_authentication.totp.button_enable') }}
-        </button>
-
-        <button
-          v-else-if="!twoFA.TOTPNeedTwoFA && !twoFA.TOTPPreEnabled"
-          :class="{
-            'two-fa-button': true,
-            button: true,
-            'disable-button': true,
-            'is-medium': true,
-            'is-disabled': twoFAButtonsDisabled,
-            'is-loading': twoFA.isLoading
-          }"
-          @click="disableTOTPRequested()"
-        >
-          {{ $t('profile.two_factor_authentication.totp.button_disable') }}
-        </button>
-
-        <p
-          :class="{
-            'show-message-2fa': true,
-            error: true,
-            'is-hidden': !twoFA.error.enableTOTP
-          }"
-        >
-          {{ $t('profile.two_factor_authentication.totp.error_enable') }}
-        </p>
-
-        <p
-          :class="{
-            'show-message-2fa': true,
-            error: true,
-            'is-hidden': !twoFA.error.disableTOTP
-          }"
-        >
-          {{ $t('profile.two_factor_authentication.totp.error_disable') }}
-        </p>
-
-        <button
-          v-if="!user.email_otp_enabled && !twoFA.emailOTPPreEnabled"
-          :class="{
-            'two-fa-button': true,
-            button: true,
-            'save-button': true,
-            'is-medium': true,
-            'is-disabled': twoFAButtonsDisabled,
-            'is-loading': twoFA.isLoading
-          }"
-          @click="preEnableEmailOTPRequested()"
-        >
-          {{ $t('profile.two_factor_authentication.email_otp.button_enable') }}
-        </button>
-
-        <button
-          v-else-if="!twoFA.emailOTPNeedTwoFA && !twoFA.emailOTPPreEnabled"
-          :class="{
-            'two-fa-button': true,
-            button: true,
-            'disable-button': true,
-            'is-medium': true,
-            'is-disabled': twoFAButtonsDisabled,
-            'is-loading': twoFA.isLoading
-          }"
-          @click="disableEmailOTPRequested()"
-        >
-          {{ $t('profile.two_factor_authentication.email_otp.button_disable') }}
-        </button>
-
-        <p
-          :class="{
-            'show-message-2fa': true,
-            error: true,
-            'is-hidden': !twoFA.error.enableEmailOTP
-          }"
-        >
-          {{ $t('profile.two_factor_authentication.email_otp.error_enable') }}
-        </p>
-
-        <p
-          :class="{
-            'show-message-2fa': true,
-            error: true,
-            'is-hidden': !twoFA.error.disableEmailOTP
-          }"
-        >
-          {{ $t('profile.two_factor_authentication.email_otp.error_disable') }}
-        </p>
-
-        <button
-          v-if="!twoFA.FIDOPreRegistered"
-          :class="{
-            'two-fa-button': true,
-            button: true,
-            'save-button': true,
-            'is-medium': true,
-            'is-disabled': twoFAButtonsDisabled,
-            'is-loading': twoFA.isLoading
-          }"
-          @click="preRegisterFIDORequested()"
-        >
-          {{ $t('profile.two_factor_authentication.fido.button_register') }}
-        </button>
-
-        <button
-          v-if="twoFAEnabled && !twoFA.newRecoveryCodesNeedTwoFA"
-          :class="{
-            'two-fa-button': true,
-            button: true,
-            'save-button': true,
-            'is-medium': true,
-            'is-disabled': twoFAButtonsDisabled,
-            'is-loading': twoFA.isLoading
-          }"
-          @click="newRecoveryCodesRequested()"
-        >
-          {{
-            $t('profile.two_factor_authentication.recovery_codes.button_new')
-          }}
-        </button>
-
-        <p
-          :class="{
-            'show-message-2fa': true,
-            error: true,
-            'is-hidden': !twoFA.error.newRecoveryCodes
-          }"
-        >
-          {{ $t('profile.two_factor_authentication.recovery_codes.error_new') }}
-        </p>
-
-        <h3 v-if="user.fido_enabled">
-          {{
-            $t(
-              'profile.two_factor_authentication.fido.registered_devices_title'
-            )
-          }}
-        </h3>
-
-        <ul class="pa1">
-          <li
-            :key="`${device}-${index}`"
-            v-for="(device, index) in user.fido_devices"
-          >
-            {{ device }}
-            <trash-icon
-              class="trash-icon-fido-device"
-              :size="15"
-              @click="unregisterFIDORequested(device)"
-            />
-          </li>
-        </ul>
-
-        <p
-          :class="{
-            'show-message-2fa': true,
-            error: true,
-            'is-hidden': !twoFA.error.unregisterFIDO
-          }"
-        >
-          {{ $t('profile.two_factor_authentication.fido.error_unregister') }}
-        </p>
-      </div>
+      <card :title="$t('profile.two_factor_authentication.title')">
+        <two-factor-authentication-setup />
+      </card>
     </div>
 
     <change-avatar-modal
@@ -583,800 +182,290 @@
   </div>
 </template>
 
-<script>
+<script setup>
 import moment from 'moment-timezone'
-import QrcodeVue from 'qrcode.vue'
-import {
-  LockIcon,
-  CopyIcon,
-  SaveIcon,
-  XCircleIcon,
-  KeyIcon,
-  TrashIcon
-} from 'lucide-vue-next'
-import { mapGetters, mapActions } from 'vuex'
+import { computed, onMounted, reactive, ref, watch } from 'vue'
+import { useI18n } from 'vue-i18n'
+import { useHead } from '@unhead/vue'
+import { useStore } from 'vuex'
 
-import lang from '@/lib/lang'
+import { getCountryOptions } from '@/lib/countries'
+import lang, { localeCode } from '@/lib/lang'
 
-import ComboboxBoolean from '@/components/widgets/ComboboxBoolean.vue'
 import ChangeAvatarModal from '@/components/modals/ChangeAvatarModal.vue'
+import Card from '@/components/widgets/Card.vue'
+import Checkbox from '@/components/widgets/Checkbox.vue'
+import Combobox from '@/components/widgets/Combobox.vue'
 import PeopleAvatar from '@/components/widgets/PeopleAvatar.vue'
 import TextField from '@/components/widgets/TextField.vue'
-import TwoFactorAuthentication from '@/components/widgets/TwoFactorAuthentication.vue'
+import TwoFactorAuthenticationSetup from '@/components/widgets/TwoFactorAuthenticationSetup.vue'
 
-export default {
-  name: 'profile',
+const { t } = useI18n()
+const store = useStore()
 
-  components: {
-    ComboboxBoolean,
-    PeopleAvatar,
-    ChangeAvatarModal,
-    TextField,
-    QrcodeVue,
-    LockIcon,
-    CopyIcon,
-    SaveIcon,
-    XCircleIcon,
-    KeyIcon,
-    TrashIcon,
-    TwoFactorAuthentication
-  },
+// State
 
-  data() {
-    return {
-      form: {
-        first_name: '',
-        last_name: '',
-        notifications_enabled: 'false',
-        notifications_slack_enabled: 'false',
-        notifications_slack_userid: '',
-        notifications_mattermost_enabled: 'false',
-        notifications_mattermost_userid: '',
-        notifications_discord_enabled: 'false',
-        notifications_discord_userid: '',
-        email: '',
-        phone: '',
-        timezone: 'Europe/Paris',
-        locale: 'French'
-      },
-      passwordForm: {
-        oldPassword: '',
-        password: '',
-        password2: ''
-      },
-      changeAvatar: {
-        isModalShown: false,
-        isLoading: false,
-        isLoadingError: false,
-        formData: null
-      },
-      twoFA: {
-        TOTPProvisionningUri: '',
-        OTPSecret: '',
-        OTPRecoveryCodes: null,
-        isLoading: false,
-        TOTPPreEnabled: false,
-        TOTPNeedTwoFA: false,
-        emailOTPPreEnabled: false,
-        emailOTPNeedTwoFA: false,
-        FIDONeedTwoFA: false,
-        FIDONewDeviceName: '',
-        FIDOPreRegistered: false,
-        preUnregisteredFIDODeviceName: '',
-        newRecoveryCodesNeedTwoFA: false,
-        validationOTP: '',
-        error: {
-          isWrongOTP: false,
-          enableTOTP: false,
-          disableTOTP: false,
-          enableEmailOTP: false,
-          disableEmailOTP: false,
-          registerFIDO: false,
-          unregisterFIDO: false,
-          newRecoveryCodes: false
-        }
-      }
-    }
-  },
+const form = ref({
+  first_name: '',
+  last_name: '',
+  notifications_enabled: false,
+  notifications_slack_enabled: false,
+  notifications_slack_userid: '',
+  notifications_mattermost_enabled: false,
+  notifications_mattermost_userid: '',
+  notifications_discord_enabled: false,
+  notifications_discord_userid: '',
+  email: '',
+  phone: '',
+  country: null,
+  timezone: 'Europe/Paris',
+  locale: 'en_US'
+})
 
-  watch: {
-    user() {
-      Object.assign(this.form, this.user)
-    }
-  },
+const passwordForm = ref({
+  oldPassword: '',
+  password: '',
+  password2: ''
+})
 
-  computed: {
-    ...mapGetters([
-      'changePassword',
-      'isSaveProfileLoading',
-      'isSaveProfileLoadingError',
-      'user'
-    ]),
+const changeAvatar = reactive({
+  isModalShown: false,
+  isLoading: false,
+  isLoadingError: false,
+  formData: null
+})
 
-    timezones() {
-      return moment.tz.names().filter(timezone => {
-        return timezone.indexOf('/') > 0 && timezone.indexOf('Etc') < 0
-      })
-    },
+const loading = reactive({ info: false, notifications: false })
+const errors = reactive({ info: false, notifications: false })
 
-    twoFAsEnabled() {
-      const twoFAsEnabled = []
-      if (this.user.fido_enabled) {
-        twoFAsEnabled.push('fido')
-      }
-      if (this.user.totp_enabled) {
-        twoFAsEnabled.push('totp')
-      }
-      if (this.user.email_otp_enabled) {
-        twoFAsEnabled.push('email_otp')
-      }
-      if (twoFAsEnabled.length >= 0) {
-        twoFAsEnabled.push('recovery_code')
-      }
-      return twoFAsEnabled
-    },
+// Locale list — alphabetical by the English name (as in the original page),
+// with the native name in parentheses so it stays recognizable when the UI
+// language doesn't match.
+const localeOptions = [
+  { label: 'Chinese (简体中文)', value: 'zh_Hans_CN' },
+  { label: 'Chinese TC (繁體中文)', value: 'zh_Hant_TW' },
+  { label: 'Danish (Dansk)', value: 'da_DA' },
+  { label: 'Dutch (Nederlands)', value: 'nl_NL' },
+  { label: 'English', value: 'en_US' },
+  { label: 'French (Français)', value: 'fr_FR' },
+  { label: 'German (Deutsch)', value: 'de_DE' },
+  { label: 'Hungarian (Magyar)', value: 'hu_HU' },
+  { label: 'Japanese (日本語)', value: 'ja_JP' },
+  { label: 'Korean (한국어)', value: 'ko_KR' },
+  { label: 'Portuguese Brazilian (Português)', value: 'pt_BR' },
+  { label: 'Persian (فارسی)', value: 'fa_IR' },
+  { label: 'Spanish (Español)', value: 'es_ES' },
+  { label: 'Russian (Русский)', value: 'ru_RU' }
+]
 
-    twoFAEnabled() {
-      return (
-        this.user.totp_enabled ||
-        this.user.email_otp_enabled ||
-        this.user.fido_enabled
-      )
-    },
+// Computed
 
-    twoFAVerificationNeeded() {
-      return (
-        this.twoFA.TOTPNeedTwoFA ||
-        this.twoFA.emailOTPNeedTwoFA ||
-        this.twoFA.FIDONeedTwoFA ||
-        this.twoFA.newRecoveryCodesNeedTwoFA
-      )
-    },
+const user = computed(() => store.getters.user)
+const changePassword = computed(() => store.getters.changePassword)
 
-    twoFAButtonsDisabled() {
-      return (
-        this.twoFA.TOTPPreEnabled ||
-        this.twoFA.TOTPNeedTwoFA ||
-        this.twoFA.emailOTPPreEnabled ||
-        this.twoFA.emailOTPNeedTwoFA ||
-        this.twoFA.FIDONeedTwoFA ||
-        this.twoFA.FIDOPreRegistered ||
-        this.twoFA.newRecoveryCodesNeedTwoFA
-      )
-    },
+const timezoneOptions = computed(() =>
+  moment.tz
+    .names()
+    .filter(tz => tz.indexOf('/') > 0 && tz.indexOf('Etc') < 0)
+    .map(tz => ({ label: tz, value: tz }))
+)
 
-    textValidateNewTwoFA() {
-      if (this.twoFA.TOTPPreEnabled) {
-        return this.$t('profile.two_factor_authentication.totp.button_validate')
-      } else if (this.twoFA.emailOTPPreEnabled) {
-        return this.$t(
-          'profile.two_factor_authentication.email_otp.button_validate'
-        )
-      } else return ''
-    },
+const countryOptions = computed(() => getCountryOptions(localeCode.value))
 
-    textValidateTwoFA() {
-      if (this.twoFA.TOTPNeedTwoFA) {
-        return this.$t(
-          'profile.two_factor_authentication.totp.button_validate_disable'
-        )
-      } else if (this.twoFA.emailOTPNeedTwoFA) {
-        return this.$t(
-          'profile.two_factor_authentication.email_otp.button_validate_disable'
-        )
-      } else if (this.twoFA.newRecoveryCodesNeedTwoFA) {
-        return this.$t(
-          'profile.two_factor_authentication.recovery_codes.button_validate'
-        )
-      } else if (this.twoFA.FIDONeedTwoFA) {
-        return this.$t(
-          'profile.two_factor_authentication.fido.button_unregister'
-        )
-      } else return ''
-    },
+// Functions
 
-    validateTwoFAIsDisable() {
-      return (
-        this.twoFA.TOTPNeedTwoFA ||
-        this.twoFA.emailOTPNeedTwoFA ||
-        this.twoFA.FIDONeedTwoFA
-      )
-    },
+const syncFormFromUser = () => {
+  Object.assign(form.value, user.value)
+  form.value.notifications_enabled = Boolean(user.value.notifications_enabled)
+  form.value.notifications_slack_enabled = Boolean(
+    user.value.notifications_slack_enabled
+  )
+  form.value.notifications_mattermost_enabled = Boolean(
+    user.value.notifications_mattermost_enabled
+  )
+  form.value.notifications_discord_enabled = Boolean(
+    user.value.notifications_discord_enabled
+  )
+}
 
-    placeholderInputEnableOTP() {
-      if (this.twoFA.TOTPPreEnabled) return this.$t('login.fields.totp')
-      else if (this.twoFA.emailOTPPreEnabled)
-        return this.$t('login.fields.email_otp')
-      return ''
-    },
+const saveSection = async section => {
+  loading[section] = true
+  errors[section] = false
+  try {
+    await store.dispatch('saveProfile', { form: form.value })
+  } catch {
+    errors[section] = true
+  }
+  loading[section] = false
+}
 
-    textWrongOTPError() {
-      if (this.twoFA.TOTPPreEnabled) return this.$t('login.wrong_totp')
-      else if (this.twoFA.emailOTPPreEnabled)
-        return this.$t('login.wrong_email_otp')
-      return ''
-    }
-  },
+const saveInfo = () => saveSection('info')
+const saveNotifications = () => saveSection('notifications')
 
-  methods: {
-    ...mapActions([
-      'checkNewPasswordValidityAndSave',
-      'clearAvatar',
-      'disableEmailOTP',
-      'disableTOTP',
-      'enableEmailOTP',
-      'enableTOTP',
-      'newRecoveryCodes',
-      'preEnableEmailOTP',
-      'preEnableTOTP',
-      'preRegisterFIDO',
-      'registerFIDO',
-      'saveProfile',
-      'uploadAvatar',
-      'unregisterFIDO'
-    ]),
+const localeChanged = value => {
+  form.value.locale = value
+  lang.setLocale(value)
+}
 
-    localeChanged() {
-      lang.setLocale(this.form.locale)
-    },
-
-    async passwordChangeRequested() {
-      await this.checkNewPasswordValidityAndSave({
-        form: this.passwordForm
-      })
-      if (this.changePassword.isSuccess) {
-        this.passwordForm = {
-          oldPassword: '',
-          password: '',
-          password2: ''
-        }
-      }
-    },
-
-    enableTOTPRequested() {
-      this.removeTwoFactorErrors()
-      this.twoFA.isLoading = true
-      this.enableTOTP(this.twoFA.validationOTP)
-        .then(OTPRecoveryCodes => {
-          if (OTPRecoveryCodes) {
-            this.twoFA.OTPRecoveryCodes = OTPRecoveryCodes
-          }
-          this.twoFA.TOTPPreEnabled = false
-          this.twoFA.validationOTP = ''
-          this.twoFA.error.isWrongOTP = false
-          this.twoFA.OTPSecret = ''
-        })
-        .catch(err => {
-          if (err.body && err.body.wrong_OTP) this.twoFA.error.isWrongOTP = true
-          else this.twoFA.error.EnableTOTP = true
-        })
-        .finally(() => {
-          this.twoFA.isLoading = false
-        })
-    },
-
-    preEnableTOTPRequested() {
-      this.removeTwoFactorErrors()
-      this.twoFA.isLoading = true
-      this.twoFA.TOTPPreEnabled = false
-      this.preEnableTOTP()
-        .then(body => {
-          this.twoFA.TOTPProvisionningUri = body.totp_provisionning_uri
-          this.twoFA.OTPSecret = body.otp_secret
-          this.twoFA.TOTPPreEnabled = true
-        })
-        .catch(() => {
-          this.twoFA.error.EnableTOTP = true
-        })
-        .finally(() => {
-          this.twoFA.isLoading = false
-        })
-    },
-
-    disableTOTPRequested(payload) {
-      this.removeTwoFactorErrors()
-      if (!this.twoFA.TOTPNeedTwoFA) this.twoFA.TOTPNeedTwoFA = true
-      else {
-        this.twoFA.isLoading = true
-        this.disableTOTP(payload)
-          .then(() => {
-            this.twoFA.TOTPNeedTwoFA = false
-            this.twoFA.validationOTP = ''
-            this.twoFA.error.isWrongOTP = false
-          })
-          .catch(err => {
-            if (err.body && err.body.wrong_OTP)
-              this.twoFA.error.isWrongOTP = true
-            else this.twoFA.error.disableTOTP = true
-          })
-          .finally(() => {
-            this.twoFA.isLoading = false
-          })
-      }
-    },
-
-    enableEmailOTPRequested() {
-      this.removeTwoFactorErrors()
-      this.twoFA.isLoading = true
-      this.enableEmailOTP(this.twoFA.validationOTP)
-        .then(OTPRecoveryCodes => {
-          if (OTPRecoveryCodes) {
-            this.twoFA.OTPRecoveryCodes = OTPRecoveryCodes
-          }
-          this.twoFA.emailOTPPreEnabled = false
-          this.twoFA.validationOTP = ''
-          this.twoFA.error.isWrongOTP = false
-        })
-        .catch(err => {
-          if (err.body && err.body.wrong_OTP) this.twoFA.error.isWrongOTP = true
-          else this.twoFA.error.enableEmailOTP = true
-        })
-        .finally(() => {
-          this.twoFA.isLoading = false
-        })
-    },
-
-    preEnableEmailOTPRequested() {
-      this.removeTwoFactorErrors()
-      this.twoFA.isLoading = true
-      this.twoFA.emailOTPPreEnabled = false
-      this.twoFA.OTPRecoveryCodes = null
-      this.preEnableEmailOTP()
-        .then(() => {
-          this.twoFA.emailOTPPreEnabled = true
-        })
-        .catch(() => {
-          this.twoFA.error.EnableEmailOTP = true
-        })
-        .finally(() => {
-          this.twoFA.isLoading = false
-        })
-    },
-
-    disableEmailOTPRequested(payload) {
-      this.removeTwoFactorErrors()
-      this.twoFA.OTPRecoveryCodes = null
-      if (!this.twoFA.emailOTPNeedTwoFA) this.twoFA.emailOTPNeedTwoFA = true
-      else {
-        this.twoFA.isLoading = true
-        this.disableEmailOTP(payload)
-          .then(() => {
-            this.twoFA.emailOTPNeedTwoFA = false
-            this.twoFA.validationOTP = ''
-            this.twoFA.error.isWrongOTP = false
-          })
-          .catch(err => {
-            if (err.body && err.body.wrong_OTP)
-              this.twoFA.error.isWrongOTP = true
-            else this.twoFA.error.disableEmailOTP = true
-          })
-          .finally(() => {
-            this.twoFA.isLoading = false
-          })
-      }
-    },
-
-    preRegisterFIDORequested() {
-      this.removeTwoFactorErrors()
-      this.twoFA.FIDOPreRegistered = true
-    },
-
-    registerFIDORequested() {
-      this.removeTwoFactorErrors()
-      this.twoFA.isLoading = true
-      this.preRegisterFIDO()
-        .then(publicKey => {
-          return navigator.credentials.create({ publicKey: publicKey })
-        })
-        .then(newCredentialResponse => {
-          return this.registerFIDO({
-            registrationResponse: newCredentialResponse,
-            deviceName: this.twoFA.FIDONewDeviceName
-          })
-        })
-        .then(OTPRecoveryCodes => {
-          if (OTPRecoveryCodes) {
-            this.twoFA.OTPRecoveryCodes = OTPRecoveryCodes
-          }
-        })
-        .catch(err => {
-          if (err instanceof DOMException) console.error(err)
-          this.twoFA.error.registerFIDO = true
-        })
-        .finally(() => {
-          this.twoFA.FIDOPreRegistered = false
-          this.twoFA.isLoading = false
-          this.twoFA.FIDONewDeviceName = ''
-        })
-    },
-
-    unregisterFIDORequested(deviceName, payload) {
-      this.removeTwoFactorErrors()
-      if (!this.twoFA.FIDONeedTwoFA) {
-        this.twoFA.FIDONeedTwoFA = true
-        this.twoFA.preUnregisteredFIDODeviceName = deviceName
-      } else {
-        this.twoFA.isLoading = true
-        this.unregisterFIDO({
-          twoFactorPayload: payload,
-          deviceName: this.twoFA.preUnregisteredFIDODeviceName
-        })
-          .then(() => {
-            this.twoFA.FIDONeedTwoFA = false
-            this.twoFA.preUnregisteredFIDODeviceName = ''
-            this.twoFA.validationOTP = ''
-            this.twoFA.error.isWrongOTP = false
-          })
-          .catch(err => {
-            if (err.body && err.body.wrong_OTP)
-              this.twoFA.error.isWrongOTP = true
-            else this.twoFA.error.unregisterFIDO = true
-          })
-          .finally(() => {
-            this.twoFA.isLoading = false
-          })
-      }
-    },
-
-    newRecoveryCodesRequested(payload) {
-      this.removeTwoFactorErrors()
-      if (!this.twoFA.newRecoveryCodesNeedTwoFA) {
-        this.twoFA.newRecoveryCodesNeedTwoFA = true
-      } else {
-        this.twoFA.isLoading = true
-        this.newRecoveryCodes(payload)
-          .then(OTPRecoveryCodes => {
-            this.twoFA.OTPRecoveryCodes = OTPRecoveryCodes
-            this.twoFA.newRecoveryCodesNeedTwoFA = false
-            this.twoFA.validationOTP = ''
-            this.twoFA.error.isWrongOTP = false
-          })
-          .catch(err => {
-            if (err.body && err.body.wrong_OTP)
-              this.twoFA.error.isWrongOTP = true
-            else this.twoFA.error.newRecoveryCodes = true
-          })
-          .finally(() => {
-            this.twoFA.isLoading = false
-          })
-      }
-    },
-
-    nextEnable() {
-      if (this.twoFA.TOTPPreEnabled) this.enableTOTPRequested()
-      else if (this.twoFA.emailOTPPreEnabled) this.enableEmailOTPRequested()
-    },
-
-    nextWithPayload(payload) {
-      if (this.twoFA.TOTPNeedTwoFA) this.disableTOTPRequested(payload)
-      else if (this.twoFA.emailOTPNeedTwoFA) {
-        this.disableEmailOTPRequested(payload)
-      } else if (this.twoFA.newRecoveryCodesNeedTwoFA) {
-        this.newRecoveryCodesRequested(payload)
-      } else if (this.twoFA.FIDONeedTwoFA) {
-        this.unregisterFIDORequested(
-          this.twoFA.preUnregisteredFIDODeviceName,
-          payload
-        )
-      }
-    },
-
-    selectFile(formData) {
-      this.$store.commit('CHANGE_AVATAR_FILE', formData)
-    },
-
-    uploadAvatarFile() {
-      this.changeAvatar.isLoading = true
-      this.changeAvatar.isError = false
-      this.uploadAvatar()
-        .catch(err => {
-          console.error(err)
-          this.changeAvatar.isError = true
-        })
-        .finally(() => {
-          this.changeAvatar.isLoading = false
-          this.hideAvatarModal()
-        })
-    },
-
-    hideAvatarModal() {
-      this.changeAvatar.isModalShown = false
-    },
-
-    showAvatarModal() {
-      this.changeAvatar.isModalShown = true
-    },
-
-    removeAvatar() {
-      this.clearAvatar()
-    },
-
-    copyRecoveryCodesToClipboard() {
-      navigator.clipboard.writeText(this.twoFA.OTPRecoveryCodes.join('\n'))
-    },
-
-    saveRecoveryCodesToFile() {
-      const blob = new Blob([this.twoFA.OTPRecoveryCodes.join('\n')], {
-        type: 'text/plain;charset=utf-8'
-      })
-      const link = document.createElement('a')
-      link.setAttribute('href', URL.createObjectURL(blob))
-      link.setAttribute('download', 'kitsu-recovery-codes.txt')
-      document.body.appendChild(link)
-      link.click()
-    },
-
-    changedTwoFA(twoFA) {
-      this.twoFA.error.isWrongOTP = false
-    },
-
-    cancelCurrentTwoFactorAuthAction() {
-      this.twoFA.TOTPPreEnabled = false
-      this.twoFA.TOTPNeedTwoFA = false
-      this.twoFA.emailOTPPreEnabled = false
-      this.twoFA.emailOTPNeedTwoFA = false
-      this.twoFA.newRecoveryCodesNeedTwoFA = false
-      this.twoFA.FIDOPreRegistered = false
-      this.twoFA.FIDONewDeviceName = ''
-      this.twoFA.FIDONeedTwoFA = false
-      this.twoFA.preUnregisteredFIDODeviceName = ''
-      this.twoFA.isLoading = false
-      this.twoFA.validationOTP = ''
-      this.twoFA.error.isWrongOTP = false
-      this.twoFA.error.enableTOTP = false
-      this.twoFA.error.disableTOTP = false
-      this.twoFA.error.enableEmailOTP = false
-      this.twoFA.error.disableEmailOTP = false
-      this.twoFA.error.newRecoveryCodes = false
-      this.twoFA.error.unregisterFIDO = false
-      this.twoFA.error.registerFIDO = false
-      this.twoFA.OTPRecoveryCodes = null
-    },
-
-    removeTwoFactorErrors() {
-      this.twoFA.error.isWrongOTP = false
-      this.twoFA.error.enableTOTP = false
-      this.twoFA.error.disableTOTP = false
-      this.twoFA.error.enableEmailOTP = false
-      this.twoFA.error.disableEmailOTP = false
-      this.twoFA.error.newRecoveryCodes = false
-      this.twoFA.error.unregisterFIDO = false
-      this.twoFA.error.registerFIDO = false
-      this.twoFA.OTPRecoveryCodes = null
-    },
-
-    onKeyDown(event) {
-      if (event.key === 'Escape') this.cancelCurrentTwoFactorAuthAction()
-    }
-  },
-
-  mounted() {
-    this.form = Object.assign(this.form, this.user)
-    this.form.notifications_enabled = this.form.notifications_enabled
-      ? 'true'
-      : 'false'
-    this.form.notifications_slack_enabled = this.form
-      .notifications_slack_enabled
-      ? 'true'
-      : 'false'
-    this.form.notifications_mattermost_enabled = this.form
-      .notifications_mattermost_enabled
-      ? 'true'
-      : 'false'
-    this.form.notifications_discord_enabled = this.form
-      .notifications_discord_enabled
-      ? 'true'
-      : 'false'
-    window.addEventListener('keydown', this.onKeyDown, false)
-  },
-
-  unmounted() {
-    window.removeEventListener('keydown', this.onKeyDown, false)
-  },
-
-  head() {
-    return {
-      title: `${this.$t('profile.title')} - Kitsu`
-    }
+const passwordChangeRequested = async () => {
+  await store.dispatch('checkNewPasswordValidityAndSave', {
+    form: passwordForm.value
+  })
+  if (changePassword.value.isSuccess) {
+    passwordForm.value = { oldPassword: '', password: '', password2: '' }
   }
 }
+
+const selectFile = formData => {
+  store.commit('CHANGE_AVATAR_FILE', formData)
+}
+
+const uploadAvatarFile = formData => {
+  changeAvatar.isLoading = true
+  changeAvatar.isLoadingError = false
+  store
+    .dispatch('uploadAvatar', formData)
+    .catch(err => {
+      console.error(err)
+      changeAvatar.isLoadingError = true
+    })
+    .finally(() => {
+      changeAvatar.isLoading = false
+      hideAvatarModal()
+    })
+}
+
+const hideAvatarModal = () => {
+  changeAvatar.isModalShown = false
+}
+
+const showAvatarModal = () => {
+  changeAvatar.isModalShown = true
+}
+
+const removeAvatar = () => {
+  store.dispatch('clearAvatar')
+}
+
+// Watchers
+
+watch(user, syncFormFromUser)
+
+// Lifecycle
+
+onMounted(syncFormFromUser)
+
+// Head
+
+useHead({ title: computed(() => `${t('profile.title')} - Kitsu`) })
 </script>
 
 <style lang="scss" scoped>
-.dark .profile {
-  background: #36393f;
-  color: $white-grey;
-}
-
-.dark .profile-content {
-  background: $dark-grey-lighter;
-  color: $white-grey;
-}
-
 .profile {
-  background: $white-grey;
-  width: 100%;
+  background: var(--background-page);
+  color: var(--text);
   flex: 1 1 auto;
   height: 100%;
+  width: 100%;
+  overflow-y: auto;
 }
 
 .profile-content {
-  background: white;
-  max-width: 500px;
-  margin: auto;
-  margin-top: 6em;
-  margin-bottom: 2em;
-  box-shadow: rgba(0, 0, 0, 0.15) 0 1px 4px 2px;
-}
-
-.profile-body {
-  padding: 2em;
-}
-
-input,
-select,
-span.select {
-  width: 100%;
-}
-
-.otp-input {
-  border-radius: 10px;
-}
-
-.field {
-  margin-bottom: 2em;
+  display: flex;
+  flex-direction: column;
+  gap: 1.5rem;
+  margin: 3rem auto;
+  max-width: 720px;
+  padding: 0 1.5rem;
 }
 
 .profile-header {
-  background: $light-green;
-  padding: 2em;
-  max-height: 170px;
-}
-
-.profile-content,
-.profile-header {
-  border-top-left-radius: 1em;
-  border-top-right-radius: 1em;
-}
-
-.profile-content {
-  border-bottom-left-radius: 1em;
-  border-bottom-right-radius: 1em;
-}
-
-.profile-header-content {
-  position: relative;
-  top: -8em;
-}
-
-.profile-header h1 {
-  font-size: 2em;
-  margin-top: 0;
-}
-
-.profile-header,
-.profile-header a {
-  color: white;
-}
-
-h2:first-child {
-  margin-top: 0;
-}
-
-.big-number {
-  font-size: 3em;
-}
-
-.select:after {
-  border-color: $light-green;
-}
-
-.save-button {
-  border-radius: 2em;
-  width: 100%;
-  background: $green;
-  border-color: $green;
-  color: white;
-}
-
-.save-button:hover {
-  background: $light-green;
-  border-color: $light-green;
-}
-
-.avatar {
-  margin: auto;
-  border: 5px solid white;
-}
-
-.change-avatar-button {
-  color: white;
-}
-
-.show-message {
-  margin-top: 1em;
-}
-
-.show-message-2fa {
-  margin-bottom: 1em;
-}
-
-.clear-avatar-button {
-  color: white;
-  font-size: 0.7em;
-  text-transform: lowercase;
-}
-
-select {
-  height: 3em;
-}
-
-.qrcode {
-  margin-bottom: 1em;
-  margin-top: 1em;
-}
-
-.cancel-two-factor-action {
-  text-align: right;
-  margin-bottom: 0.2em;
-}
-
-.qrcode-informations {
+  align-items: center;
+  display: flex;
+  flex-direction: column;
+  padding: 1.5rem 0 0.5rem;
   text-align: center;
 }
 
-.recovery-codes {
-  resize: none;
-  height: 13em;
-  font-size: 1.5em;
-  padding-left: 2.5em;
-  padding-top: 0.5em;
-  font-family:
-    ui-monospace,
-    SFMono-Regular,
-    SF Mono,
-    Menlo,
-    Consolas,
-    Liberation Mono,
-    monospace;
+.profile-name {
+  color: var(--text);
+  font-size: 1.6rem;
+  font-weight: 600;
+  margin: 1rem 0 0.25rem;
 }
 
-.action-icon {
+.profile-role {
+  color: var(--text-alt);
+  font-size: 0.95rem;
+  letter-spacing: 0.02em;
+  margin: 0;
+  text-transform: uppercase;
+}
+
+.profile-avatar-actions {
+  align-items: center;
+  display: flex;
+  gap: 0.4rem;
+  margin-top: 0.75rem;
+}
+
+.dot {
+  color: var(--text-alt);
+}
+
+.link-button {
+  background: none;
+  border: none;
+  color: $green;
   cursor: pointer;
-  float: right;
-  margin: 0 5px 5px;
+  font-size: 0.9rem;
+  padding: 0;
+
+  &:hover {
+    text-decoration: underline;
+  }
+
+  &.muted {
+    color: var(--text-alt);
+  }
 }
 
-.label-recovery-codes {
-  float: left;
+// Combobox wraps its <select> in a Bulma .select span that is
+// inline-block by default; force it block so the dropdown stretches to
+// the same width as the TextField inputs above it.
+.profile-content {
+  :deep(.select) {
+    display: block;
+  }
+  :deep(.combobox.select-input) {
+    width: 100%;
+  }
 }
 
-.recovery-codes-warning {
-  margin-bottom: 1em;
+.grid-two {
+  display: grid;
+  gap: 0 1rem;
+  grid-template-columns: 1fr 1fr;
 }
 
-.disable-button {
-  border-radius: 2em;
-  width: 100%;
-  background: $red;
-  border-color: $red;
-  color: white;
+.toggle-row {
+  margin-bottom: 1rem;
 }
 
-.two-fa-button {
-  margin-bottom: 1em;
+.channel {
+  border-top: 1px solid var(--border);
+  padding-top: 1rem;
+  margin-top: 0.5rem;
 }
 
-.icon {
-  padding: 0.25em;
-}
+@media screen and (max-width: 768px) {
+  .profile-content {
+    margin: 1.5rem auto;
+    padding: 0 0.75rem;
+  }
 
-.trash-icon-fido-device {
-  float: right;
-  cursor: pointer;
-}
-
-.button {
-  border-radius: 10px;
+  .grid-two {
+    grid-template-columns: 1fr;
+  }
 }
 </style>

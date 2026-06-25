@@ -16,9 +16,9 @@
       <table-metadata-header-menu
         ref="headerMetadataMenu"
         :is-edit-allowed="
-          isMetadataColumnEditAllowed(lastMetadaDataHeaderMenuDisplayed)
+          isMetadataColumnEditAllowed(lastMetadataHeaderMenuDisplayed)
         "
-        :is-sticked="stickedColumns[lastMetadaDataHeaderMenuDisplayed]"
+        :is-sticked="stickedColumns[lastMetadataHeaderMenuDisplayed]"
         @edit-clicked="onEditMetadataClicked()"
         @delete-clicked="onDeleteMetadataClicked()"
         @sort-by-clicked="onSortByMetadataClicked()"
@@ -66,9 +66,6 @@
                   offsets['editor-' + j] ? `${offsets['editor-' + j]}px` : '0'
                 "
                 is-stick
-                :style="{
-                  'z-index': 1001
-                }"
                 @show-metadata-header-menu="
                   event => showMetadataHeaderMenu(descriptor.id, event)
                 "
@@ -189,7 +186,7 @@
                 }"
                 namespace="edits"
                 v-model="metadataDisplayHeaders"
-                v-show="columnSelectorDisplayed"
+                v-model:is-open="columnSelectorDisplayed"
                 v-if="displaySettings.showInfos"
               />
 
@@ -257,9 +254,13 @@
                     tabindex="-1"
                     :title="edit.full_name"
                     :to="editPath(edit.id)"
+                    v-if="!isCurrentUserClient"
                   >
                     {{ edit.name }}
                   </router-link>
+                  <template v-else>
+                    {{ edit.name }}
+                  </template>
                 </div>
               </th>
 
@@ -449,7 +450,7 @@
       </table>
     </div>
 
-    <table-info :is-loading="isLoading" :is-error="isError" />
+    <table-info :is-loading="isLoading" :is-error="isError" big-cells />
 
     <div
       class="has-text-centered"
@@ -587,7 +588,7 @@ export default {
       type: 'edit',
       hiddenColumns: {},
       lastHeaderMenuDisplayed: null,
-      lastMetadaDataHeaderMenuDisplayed: null,
+      lastMetadataHeaderMenuDisplayed: null,
       lastHeaderMenuDisplayedIndexInGrid: null,
       lastSelectedEdit: null,
       lastSelection: null,
@@ -672,33 +673,6 @@ export default {
       return !this.isLoading && !this.isError && this.displayedEditsCount > 0
     },
 
-    visibleColumns() {
-      let count = 2
-      count +=
-        !this.isCurrentUserClient &&
-        this.displaySettings.showInfos &&
-        this.isEditDescription
-          ? 1
-          : 0
-      count += this.visibleMetadataDescriptors.length
-      count +=
-        !this.isCurrentUserClient &&
-        this.displaySettings.showInfos &&
-        this.isEditTime &&
-        this.metadataDisplayHeaders.timeSpent
-          ? 1
-          : 0
-      count +=
-        !this.isCurrentUserClient &&
-        this.displaySettings.showInfos &&
-        this.isEditEstimation &&
-        this.metadataDisplayHeaders.estimation
-          ? 1
-          : 0
-      count += this.displayedValidationColumns.length
-      return count
-    },
-
     displayedValidationColumns() {
       return this.validationColumns.filter(columnId => {
         return (
@@ -721,7 +695,7 @@ export default {
     ...mapActions(['displayMoreEdits', 'setEditSelection']),
 
     isSelected(lineIndex, columnIndex) {
-      return this.editSelectionGrid[lineIndex][columnIndex]
+      return this.editSelectionGrid.has(`${lineIndex}-${columnIndex}`)
     },
 
     toggleLine(edit, event) {
@@ -816,8 +790,8 @@ export default {
     },
 
     metadataStickColumnClicked(event) {
-      this.toggleStickedColumns(this.lastMetadaDataHeaderMenuDisplayed)
-      this.showMetadataHeaderMenu(this.lastMetadaDataHeaderMenuDisplayed, event)
+      this.toggleStickedColumns(this.lastMetadataHeaderMenuDisplayed)
+      this.showMetadataHeaderMenu(this.lastMetadataHeaderMenuDisplayed, event)
     },
 
     updateOffsets() {
@@ -903,7 +877,7 @@ th.actions {
   color: inherit;
 }
 
-.name.edit-name {
+thead .name.edit-name {
   min-width: 110px;
   width: 110px;
 }
@@ -958,10 +932,6 @@ span.thumbnail-empty {
 .datatable-row th.name {
   font-size: 1.1em;
   padding: 6px;
-}
-
-.datatable-row-header {
-  cursor: pointer;
 }
 
 .dark {
@@ -1028,7 +998,6 @@ input[type='number'] {
 
 td.metadata-descriptor {
   height: 3.1rem;
-  max-width: 120px;
   padding: 0;
 }
 
@@ -1073,7 +1042,7 @@ td .select {
 }
 
 .metadata-value {
-  padding: 0.8rem;
+  padding: 0.5rem 0.75rem;
 }
 
 .resolution {

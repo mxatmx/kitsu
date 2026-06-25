@@ -22,6 +22,7 @@
     <corner-left-down-icon class="icon" v-else-if="icon === 'undo'" />
     <corner-right-down-icon class="icon" v-else-if="icon === 'redo'" />
     <save-icon class="icon" v-else-if="icon === 'save'" />
+    <shapes-icon class="icon" v-else-if="icon === 'shapes'" />
     <plus-icon class="icon" v-else-if="icon === 'plus'" />
     <minus-icon class="icon" v-else-if="icon === 'minus'" />
     <message-square-icon class="icon" v-else-if="icon === 'comment'" />
@@ -42,13 +43,14 @@
     <list-icon class="icon" v-else-if="icon === 'list'" />
     <triangle-icon class="icon" v-else-if="icon === 'triangle'" />
     <music-icon class="icon" v-else-if="icon === 'music'" />
-    <square-icon class="icon" v-else-if="icon === 'eraser'" />
+    <eraser-icon class="icon" v-else-if="icon === 'eraser'" />
     <key-icon class="icon" v-else-if="icon === 'key'" />
     <zoom-in-icon class="icon" v-else-if="icon === 'loupe'" />
     <globe-icon class="icon" v-else-if="icon === 'globe'" />
     <codepen-icon class="icon" v-else-if="icon === 'codepen'" />
     <link-icon class="icon" v-else-if="icon === 'link'" />
     <clock-icon class="icon" v-else-if="icon === 'clock'" />
+    <rotate-ccw-icon class="icon" v-else-if="icon === 'refresh'" />
     <file-down-icon
       class="icon"
       :stroke-width="1.5"
@@ -88,7 +90,7 @@
   </button>
 </template>
 
-<script>
+<script setup>
 import {
   BellIcon,
   CalendarIcon,
@@ -104,6 +106,7 @@ import {
   FileDigitIcon,
   EditIcon,
   Edit2Icon,
+  EraserIcon,
   GlobeIcon,
   GridIcon,
   FileDownIcon,
@@ -120,12 +123,13 @@ import {
   PaperclipIcon,
   PauseIcon,
   PlusIcon,
+  RotateCcwIcon,
   SaveIcon,
   SendIcon,
+  ShapesIcon,
   SkipBackIcon,
   SkipForwardIcon,
   SmileIcon,
-  SquareIcon,
   TriangleIcon,
   XIcon,
   ZoomInIcon
@@ -133,107 +137,60 @@ import {
 
 import KitsuIcon from '@/components/widgets/KitsuIcon.vue'
 
-export default {
-  name: 'button-simple',
-
-  components: {
-    BellIcon,
-    CalendarIcon,
-    CalendarPlusIcon,
-    ChevronDownIcon,
-    ChevronLeftIcon,
-    ChevronRightIcon,
-    ClockIcon,
-    CodepenIcon,
-    CornerLeftDownIcon,
-    CornerRightDownIcon,
-    DownloadIcon,
-    EditIcon,
-    Edit2Icon,
-    FileDigitIcon,
-    FileDownIcon,
-    FilmIcon,
-    GlobeIcon,
-    GridIcon,
-    ImageIcon,
-    KeyIcon,
-    KitsuIcon,
-    LayersIcon,
-    LinkIcon,
-    ListIcon,
-    MaximizeIcon,
-    MessageSquareIcon,
-    MinusIcon,
-    MusicIcon,
-    PaperclipIcon,
-    PauseIcon,
-    PlusIcon,
-    SaveIcon,
-    SendIcon,
-    SkipBackIcon,
-    SkipForwardIcon,
-    SmileIcon,
-    SquareIcon,
-    TriangleIcon,
-    XIcon,
-    ZoomInIcon
+defineProps({
+  active: {
+    default: false,
+    type: Boolean
   },
-
-  props: {
-    active: {
-      default: false,
-      type: Boolean
-    },
-    disabled: {
-      default: false,
-      type: Boolean
-    },
-    icon: {
-      default: '',
-      type: String
-    },
-    isBig: {
-      default: false,
-      type: Boolean
-    },
-    isMedium: {
-      default: false,
-      type: Boolean
-    },
-    isOn: {
-      default: false,
-      type: Boolean
-    },
-    isLoading: {
-      default: false,
-      type: Boolean
-    },
-    isPrimary: {
-      default: false,
-      type: Boolean
-    },
-    isResponsive: {
-      default: false,
-      type: Boolean
-    },
-    isThin: {
-      default: false,
-      type: Boolean
-    },
-    text: {
-      type: String
-    },
-    title: {
-      type: String
-    },
-    type: {
-      type: String,
-      validator: value => ['submit', 'button', 'reset'].includes(value)
-    }
+  disabled: {
+    default: false,
+    type: Boolean
   },
+  icon: {
+    default: '',
+    type: String
+  },
+  isBig: {
+    default: false,
+    type: Boolean
+  },
+  isMedium: {
+    default: false,
+    type: Boolean
+  },
+  isOn: {
+    default: false,
+    type: Boolean
+  },
+  isLoading: {
+    default: false,
+    type: Boolean
+  },
+  isPrimary: {
+    default: false,
+    type: Boolean
+  },
+  isResponsive: {
+    default: false,
+    type: Boolean
+  },
+  isThin: {
+    default: false,
+    type: Boolean
+  },
+  text: {
+    type: String
+  },
+  title: {
+    type: String
+  },
+  type: {
+    type: String,
+    validator: value => ['submit', 'button', 'reset'].includes(value)
+  }
+})
 
-  emits: ['click']
-}
+defineEmits(['click'])
 </script>
 
 <style lang="scss" scoped>
@@ -260,5 +217,11 @@ export default {
 
 .active {
   box-shadow: inset 0 0 2px 2px var(--box-shadow);
+}
+
+@media screen and (max-width: 768px) {
+  .button .icon:first-child:not(:last-child) {
+    margin-right: 0;
+  }
 }
 </style>

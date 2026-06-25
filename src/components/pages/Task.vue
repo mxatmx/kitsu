@@ -46,9 +46,12 @@
           </span>
 
           <h1 class="title flexrow-item">
-            <router-link :to="taskEntityPath">
+            <router-link :to="taskEntityPath" v-if="!isCurrentUserClient">
               {{ title }}
             </router-link>
+            <template v-else>
+              {{ title }}
+            </template>
           </h1>
 
           <div class="flexrow-item flexrow block">
@@ -170,6 +173,7 @@
                   ref="preview-player"
                   :entity-preview-files="taskEntityPreviews"
                   :extra-wide="true"
+                  :fps="currentFps"
                   :last-preview-files="taskPreviews || []"
                   :link="currentPreviewComment?.links?.[0]"
                   :previews="currentPreview.previews"
@@ -187,7 +191,10 @@
               </div>
             </div>
           </div>
-          <div class="flexrow-item block mt1 mr0 info-block">
+          <div
+            class="flexrow-item block mt1 mr0 info-block"
+            v-if="!isCurrentUserClient"
+          >
             <page-subtitle :text="$t('main.info')" />
             <div class="table-body mt1">
               <table class="datatable no-header" v-if="task">
@@ -251,6 +258,7 @@
                 :is-max-retakes-error="errors.addCommentMaxRetakes"
                 :is-loading="loading.addComment"
                 :is-movie="isMovie"
+                :is-picture="isPicture"
                 :team="currentTeam"
                 :task-types="currentTaskTypes"
                 :task="task"
@@ -263,6 +271,9 @@
                 @file-drop="selectFile"
                 @clear-files="clearPreviewFiles"
                 @annotation-snapshots-requested="extractAnnotationSnapshots"
+                @annotation-snapshots-with-label-requested="
+                  extractAnnotationSnapshots(true)
+                "
                 @remove-preview="onPreviewFormRemoved"
                 v-if="isCommentingAllowed"
               />
@@ -307,6 +318,7 @@
                     @pin-comment="onPinComment"
                     @edit-comment="onEditComment"
                     @delete-comment="onDeleteComment"
+                    @toggle-for-client="onToggleForClient"
                     @checklist-updated="saveComment"
                     @time-code-clicked="timeCodeClicked"
                     v-for="(comment, index) in taskComments"
@@ -410,6 +422,7 @@ import { mapGetters, mapActions } from 'vuex'
 
 import drafts from '@/lib/drafts'
 import { getTaskEntityPath, getTaskEntitiesPath } from '@/lib/path'
+import { formatRevision } from '@/lib/preview'
 import { getTaskTypePriorityOfProd } from '@/lib/productions'
 import { sortPeople } from '@/lib/sorting'
 
@@ -430,7 +443,7 @@ import Spinner from '@/components/widgets/Spinner.vue'
 import SubscribeButton from '@/components/widgets/SubscribeButton.vue'
 import TaskTypeName from '@/components/widgets/TaskTypeName.vue'
 import ValidationTag from '@/components/widgets/ValidationTag.vue'
-import PreviewPlayer from '@/components/previews/PreviewPlayer.vue'
+import PreviewPlayer from '@/components/players/players/PreviewPlayer.vue'
 import ViewPlaylistModal from '@/components/modals/ViewPlaylistModal.vue'
 
 import assetsStore from '@/store/modules/assets'
@@ -603,7 +616,7 @@ export default {
         .sort((a, b) => b.revision - a.revision)
         .map(preview => {
           return {
-            label: `v${preview.revision}`,
+            label: formatRevision(preview.revision, this.currentProduction),
             value: preview.id
           }
         })
@@ -621,6 +634,10 @@ export default {
 
     isMovie() {
       return this.extension === 'mp4'
+    },
+
+    isPicture() {
+      return ['png', 'gif'].includes(this.extension)
     },
 
     isPreviewPlayerReadOnly() {
@@ -892,7 +909,7 @@ export default {
       return sortPeople(
         this.currentProduction?.team
           .map(personId => this.personMap.get(personId))
-          .filter(Boolean) || []
+          .filter(Boolean) ?? []
       )
     },
 
@@ -987,7 +1004,7 @@ export default {
     getTaskIdFromEntity(index) {
       const taskTypeId = this.task.task_type_id
       const entity = this.entityList[index]
-      if (!entity) return null
+      if (!entity?.tasks) return null
       return entity.tasks.find(ctaskId => {
         const task = this.taskMap.get(ctaskId)
         return task && task.task_type_id === taskTypeId
@@ -1074,7 +1091,8 @@ export default {
       checklist,
       taskStatusId,
       revision = undefined,
-      link = undefined
+      link = undefined,
+      forClient = false
     ) {
       const params = {
         taskId: this.task.id,
@@ -1083,7 +1101,8 @@ export default {
         checklist,
         comment,
         links: link ? [link] : null,
-        revision
+        revision,
+        forClient
       }
       const action =
         this.previewForms.length > 0 ? 'commentTaskWithPreview' : 'commentTask'
@@ -1161,7 +1180,6 @@ export default {
       this.taskComments = this.getCurrentTaskComments()
       this.taskPreviews = this.getCurrentTaskPreviews()
       this.task = this.getCurrentTask()
-      this.resetDraft()
       setTimeout(() => {
         if (this.$route.params.preview_id) {
           this.selectedPreviewId = this.$route.params.preview_id
@@ -1288,7 +1306,7 @@ export default {
       this.$refs['preview-player'].displayFirst()
       this.deleteTaskPreview({
         taskId: this.task.id,
-        commentId: comment.id,
+        commentId: comment?.id,
         previewId: this.currentExtraPreviewId
       })
         .then(() => {
@@ -1385,15 +1403,21 @@ export default {
       return route
     },
 
-    onAnnotationChanged({ preview, additions, deletions, updates }) {
+    async onAnnotationChanged({ preview, additions, deletions, updates }) {
       const taskId = this.task.id
-      this.updatePreviewAnnotation({
-        taskId,
-        preview,
-        additions,
-        deletions,
-        updates
-      })
+      const previewPlayer = this.$refs['preview-player']
+      try {
+        await this.updatePreviewAnnotation({
+          taskId,
+          preview,
+          additions,
+          deletions,
+          updates
+        })
+        previewPlayer?.confirmAnnotationsSaved()
+      } catch {
+        previewPlayer?.restoreFailedAnnotations()
+      }
     },
 
     onAddExtraPreviewClicked() {
@@ -1441,6 +1465,10 @@ export default {
 
     onPinComment(comment) {
       this.pinComment(comment)
+    },
+
+    onToggleForClient(comment) {
+      this.$store.dispatch('toggleCommentForClient', comment)
     },
 
     onEditComment(comment) {
@@ -1524,10 +1552,13 @@ export default {
       this.taskPreviews = this.getCurrentTaskPreviews()
     },
 
-    async extractAnnotationSnapshots() {
-      this.$refs['add-comment'].showAnnotationLoading()
-      const files =
-        await this.$refs['preview-player'].extractAnnotationSnapshots()
+    async extractAnnotationSnapshots(withLabel = false) {
+      this.$refs['add-comment'].showAnnotationLoading(
+        withLabel ? 'label' : 'standard'
+      )
+      const files = await this.$refs[
+        'preview-player'
+      ].extractAnnotationSnapshots({ withLabel })
       this.$refs['add-comment'].setAnnotationSnapshots(files)
       this.$refs['add-comment'].hideAnnotationLoading()
       return files
@@ -1682,7 +1713,7 @@ export default {
   },
 
   head() {
-    let title = 'Loading task... - Kitsu'
+    let title = `${this.$t('main.loading')} - Kitsu`
     if (this.task) {
       const taskTypeName = this.taskTypeMap.get(this.task.task_type_id).name
       title = `${this.title} / ${taskTypeName} - Kitsu`

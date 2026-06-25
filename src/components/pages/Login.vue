@@ -1,5 +1,5 @@
 <template>
-  <div class="login hero is-fullheight">
+  <div class="login hero is-fullheight" v-if="!isAuthenticated">
     <div class="container has-text-centered">
       <div
         class="box has-text-left"
@@ -15,13 +15,7 @@
         <form v-if="!(isMissingOTP || isWrongOTP)">
           <div class="field" v-if="mainConfig?.saml_enabled">
             <p class="control">
-              <a
-                class="button is-fullwidth"
-                :class="{
-                  'is-loading': isLoginLoading
-                }"
-                href="/api/auth/saml/login"
-              >
+              <a class="button is-fullwidth" href="/api/auth/saml/login">
                 {{ loginSAMLButtonInfo }}
               </a>
             </p>
@@ -155,6 +149,7 @@ export default {
   computed: {
     ...mapGetters([
       'isDarkTheme',
+      'isAuthenticated',
       'isLoginLoading',
       'isLoginError',
       'mainConfig'
@@ -214,6 +209,10 @@ export default {
               this.isMissingOTP = true
               this.preferredTwoFA = err.preferred_two_factor_authentication
               this.TwoFAsEnabled = err.two_factor_authentication_enabled
+            } else if (err.two_factor_authentication_required) {
+              this.$router.push({
+                name: 'login-2fa'
+              })
             } else if (err.server_error) {
               this.isServerError = true
             } else {

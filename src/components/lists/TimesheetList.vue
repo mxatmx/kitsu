@@ -31,7 +31,7 @@
     </div>
 
     <div class="datatable-wrapper" ref="body" @scroll.passive="onBodyScroll">
-      <table class="datatable multi-section">
+      <table class="datatable">
         <thead class="datatable-head">
           <tr>
             <th
@@ -56,7 +56,7 @@
             >
               {{ $t('tasks.fields.entity') }}
             </th>
-            <th scope="col" class="time-spent">
+            <th scope="col" class="time-spent datatable-row-header">
               {{ $t('timesheets.time_spents') }}
             </th>
           </tr>
@@ -109,7 +109,9 @@
               @change="onSliderChange"
               v-if="!personIsDayOff"
             />
-            <td v-else></td>
+            <td class="time-spent day-off-cell" v-else>
+              {{ $t('timesheets.day_off_no_logging') }}
+            </td>
           </tr>
         </tbody>
         <tbody class="datatable-body" v-if="!isLoading && !hideDone">
@@ -165,12 +167,21 @@
               @change="onSliderChange"
               v-if="!personIsDayOff"
             />
+            <td class="time-spent day-off-cell" v-else>
+              {{ $t('timesheets.day_off_no_logging') }}
+            </td>
           </tr>
         </tbody>
       </table>
     </div>
 
-    <table-info :is-loading="isLoading" :is-error="isError" />
+    <table-info
+      :is-loading="isLoading"
+      :is-error="isError"
+      :cells="2"
+      :with-thumbnail="false"
+      :with-actions="false"
+    />
 
     <p class="has-text-centered footer-info" v-if="!isLoading">
       {{ tasks.length }} {{ $tc('tasks.tasks', tasks.length) }}
@@ -201,7 +212,7 @@
       "
       :is-error="isDayOffError"
       :error-text="dayOffTextError"
-      @confirm="$emit('unset-day-off')"
+      @confirm="$emit('unset-day-off', personDayOff)"
       @cancel="closeUnsetDayOffModal"
     />
   </div>
@@ -258,6 +269,10 @@ export default {
     isError: {
       default: false,
       type: Boolean
+    },
+    daysOff: {
+      default: () => [],
+      type: Array
     },
     dayOffError: {
       default: false,
@@ -316,12 +331,23 @@ export default {
     ...mapGetters([
       'isCurrentUserArtist',
       'organisation',
-      'personDayOff',
-      'personIsDayOff',
       'productionMap',
       'taskTypeMap',
       'user'
     ]),
+
+    personDayOff() {
+      const selectedDate = moment(this.selectedDate).format('YYYY-MM-DD')
+      return this.daysOff.find(
+        dayOff =>
+          selectedDate >= dayOff.date &&
+          selectedDate <= (dayOff.end_date || dayOff.date)
+      )
+    },
+
+    personIsDayOff() {
+      return Boolean(this.personDayOff)
+    },
 
     displayedTasks() {
       return this.tasks.slice(0, this.page * (PAGE_SIZE / 2))
@@ -411,8 +437,24 @@ export default {
 </script>
 
 <style lang="scss" scoped>
-.datatable-head th {
-  z-index: 6; // over the .vue-slider (z-index: 5)
+.datatable-head .datatable-row-header {
+  z-index: 8; // sticky <th> must be above all
+
+  &.time-spent {
+    z-index: 6; // <th> must be under the sticky <th> on horizontal scroll
+  }
+}
+
+.datatable-body .datatable-row-header {
+  z-index: 7; // <th> must be over the .vue-slider (z-index: 5) and .vue-slider-dot (z-index: 6)
+
+  &.time-spent {
+    z-index: 5; // <th> must be under <td> on vertical scroll
+  }
+}
+
+:deep(.vue-slider-dot:hover) {
+  z-index: 6; // hack to put slider tooltip hover the header
 }
 
 .datatable-body tr:first-child th,
@@ -457,10 +499,11 @@ export default {
 
 .time-spent {
   width: 100%;
+}
 
-  :deep(.vue-slider:hover) {
-    z-index: 6; // hover the ".datatable-head th" (z-index: 6)
-  }
+.day-off-cell {
+  color: var(--text-alt);
+  font-style: italic;
 }
 
 td.name {

@@ -5,7 +5,7 @@
       'field--narrow': narrow
     }"
   >
-    <label class="label" v-if="label.length > 0">
+    <label class="label" v-if="label">
       {{ label }}
     </label>
     <div class="status-combo" :style="comboStyles">
@@ -17,24 +17,22 @@
               background: backgroundColor(currentStatus),
               color: color(currentStatus)
             }"
+            :title="currentStatus.name"
             v-if="currentStatus"
           >
             {{ currentStatus.short_name }}
           </span>
         </div>
         <chevron-down-icon
+          class="down-icon flexrow-item"
           :class="{
-            'down-icon': true,
-            'flexrow-item': true,
             white: colorOnly
           }"
         />
       </div>
       <div
-        ref="select"
+        class="select-input"
         :class="{
-          big: big,
-          'select-input': true,
           'open-top': openTop
         }"
         v-if="showStatusList"
@@ -51,6 +49,7 @@
               background: backgroundColor(status),
               color: color(status)
             }"
+            :title="status.name"
           >
             {{ status.short_name }}
           </span>
@@ -61,162 +60,116 @@
   </div>
 </template>
 
-<script>
+<script setup>
+import { computed } from 'vue'
+import { useI18n } from 'vue-i18n'
+import { useStore } from 'vuex'
 import { ChevronDownIcon } from 'lucide-vue-next'
-import { mapGetters } from 'vuex'
 
-import colors from '@/lib/colors'
 import { sortTaskStatuses } from '@/lib/sorting'
+import { useCombobox } from '@/composables/combobox'
+import { useTaskStatusStyle } from '@/composables/taskStatus'
 
 import ComboboxMask from '@/components/widgets/ComboboxMask.vue'
 
-export default {
-  name: 'combobox-status',
+const { t } = useI18n()
+const store = useStore()
+const { backgroundColor, color, isDarkTheme } = useTaskStatusStyle()
 
-  components: {
-    ChevronDownIcon,
-    ComboboxMask
+const props = defineProps({
+  colorOnly: {
+    default: false,
+    type: Boolean
   },
-
-  emits: ['update:modelValue'],
-
-  data() {
-    return {
-      showStatusList: false
-    }
+  label: {
+    default: '',
+    type: String
   },
-
-  props: {
-    big: {
-      default: false,
-      type: Boolean
-    },
-    colorOnly: {
-      default: false,
-      type: Boolean
-    },
-    label: {
-      default: '',
-      type: String
-    },
-    taskStatusList: {
-      default: () => [],
-      type: Array
-    },
-    modelValue: {
-      default: '',
-      type: String
-    },
-    narrow: {
-      default: false,
-      type: Boolean
-    },
-    withMargin: {
-      default: true,
-      type: Boolean
-    },
-    addPlaceholder: {
-      default: false,
-      type: Boolean
-    },
-    openTop: {
-      default: false,
-      type: Boolean
-    },
-    productionId: {
-      default: '',
-      type: String
-    }
+  taskStatusList: {
+    default: () => [],
+    type: Array
   },
-
-  mounted() {
-    this.selectedTaskStatus = this.taskStatus
+  modelValue: {
+    default: '',
+    type: String
   },
-
-  computed: {
-    ...mapGetters(['isDarkTheme', 'productionMap', 'taskStatusMap']),
-
-    sortedTaskStatusList() {
-      if (this.productionId) {
-        const production = this.productionMap.get(this.productionId)
-        return sortTaskStatuses(this.taskStatusList, production)
-      } else {
-        return this.taskStatusList
-      }
-    },
-
-    currentStatus() {
-      if (this.modelValue) {
-        return this.taskStatusMap.get(this.modelValue)
-      } else if (this.addPlaceholder) {
-        return {
-          short_name: '+ add status',
-          color: '#999'
-        }
-      } else {
-        return this.taskStatusList[0]
-      }
-    },
-
-    comboStyles() {
-      return {
-        width: this.big ? '150px' : '120px',
-        background: this.colorOnly
-          ? this.backgroundColor(this.currentStatus)
-          : this.isDarkTheme
-            ? '#36393F'
-            : '#FEFEFE',
-        color: this.colorOnly ? this.color(this.currentStatus) : 'inherit',
-        'border-top-left-radius': this.colorOnly ? '20px' : '10px',
-        'border-top-right-radius': this.colorOnly ? '0px' : '10px',
-        'border-bottom-left-radius': this.showStatusList
-          ? '0'
-          : this.colorOnly
-            ? '20px'
-            : '10px',
-        'border-bottom-right-radius': this.showStatusList
-          ? '0'
-          : this.colorOnly
-            ? '0px'
-            : '10px'
-      }
-    }
+  narrow: {
+    default: false,
+    type: Boolean
   },
-
-  methods: {
-    selectStatus(status) {
-      this.$emit('update:modelValue', status.id)
-      this.showStatusList = false
-    },
-
-    backgroundColor(taskStatus) {
-      if ((!taskStatus || taskStatus.name === 'Todo') && !this.isDarkTheme) {
-        return '#ECECEC'
-      } else if (
-        (!taskStatus || taskStatus.name === 'Todo') &&
-        this.isDarkTheme
-      ) {
-        return '#5F626A'
-      } else if (this.isDarkTheme) {
-        return colors.darkenColor(taskStatus.color)
-      } else {
-        return taskStatus.color
-      }
-    },
-
-    color(taskStatus) {
-      if (!taskStatus || taskStatus.name !== 'Todo' || this.isDarkTheme) {
-        return 'white'
-      } else {
-        return '#333'
-      }
-    },
-
-    toggleStatusList() {
-      this.showStatusList = !this.showStatusList
-    }
+  withMargin: {
+    default: true,
+    type: Boolean
+  },
+  addPlaceholder: {
+    default: false,
+    type: Boolean
+  },
+  openTop: {
+    default: false,
+    type: Boolean
+  },
+  productionId: {
+    default: '',
+    type: String
   }
-}
+})
+
+const emit = defineEmits(['update:model-value'])
+
+const {
+  showList: showStatusList,
+  toggle: toggleStatusList,
+  select: selectStatus
+} = useCombobox(emit)
+
+const productionMap = computed(() => store.getters.productionMap)
+const taskStatusMap = computed(() => store.getters.taskStatusMap)
+
+const sortedTaskStatusList = computed(() => {
+  if (props.productionId) {
+    const production = productionMap.value.get(props.productionId)
+    return sortTaskStatuses(props.taskStatusList, production)
+  } else {
+    return props.taskStatusList
+  }
+})
+
+const currentStatus = computed(() => {
+  if (props.modelValue) {
+    return taskStatusMap.value.get(props.modelValue)
+  } else if (props.addPlaceholder) {
+    return {
+      short_name: t('task_status.add_task_status_placeholder'),
+      color: '#999'
+    }
+  } else {
+    return props.taskStatusList[0]
+  }
+})
+
+const comboStyles = computed(() => {
+  return {
+    background: props.colorOnly
+      ? backgroundColor(currentStatus.value)
+      : isDarkTheme.value
+        ? '#36393F'
+        : '#FEFEFE',
+    color: props.colorOnly ? color(currentStatus.value) : 'inherit',
+    'border-top-left-radius': props.colorOnly ? '20px' : '10px',
+    'border-top-right-radius': props.colorOnly ? '0px' : '10px',
+    'border-bottom-left-radius': showStatusList.value
+      ? '0'
+      : props.colorOnly
+        ? '20px'
+        : '10px',
+    'border-bottom-right-radius': showStatusList.value
+      ? '0'
+      : props.colorOnly
+        ? '0px'
+        : '10px'
+  }
+})
 </script>
 
 <style lang="scss" scoped>
@@ -234,9 +187,9 @@ export default {
 }
 
 .status-combo {
+  display: inline-block;
   background: var(--background);
-  min-width: 120px;
-  width: 120px;
+  min-width: 80px;
   border: 1px solid $light-grey-light;
   user-select: none;
   cursor: pointer;
@@ -259,6 +212,7 @@ export default {
 .selected-status-line {
   text-transform: uppercase;
   flex: 1;
+  margin-right: 0;
 }
 
 .status-line {
@@ -282,7 +236,7 @@ export default {
 
 .select-input {
   background: $white;
-  width: 120px;
+  min-width: calc(100% + 2px);
   position: absolute;
   border: 1px solid $light-grey-light;
   border-bottom-left-radius: 10px;
@@ -293,10 +247,6 @@ export default {
   top: 38px;
   left: 0;
   overflow-y: auto;
-
-  &.big {
-    width: 150px;
-  }
 
   &.open-top {
     top: auto;

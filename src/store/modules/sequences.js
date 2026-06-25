@@ -1,7 +1,6 @@
 import peopleApi from '@/store/api/people'
 import shotsApi from '@/store/api/shots'
 import shotStore from '@/store/modules/shots'
-import taskStore from '@/store/modules/tasks'
 
 import func from '@/lib/func'
 import { getTaskTypePriorityOfProd } from '@/lib/productions'
@@ -12,11 +11,7 @@ import {
   sortSequenceResult,
   sortValidationColumns
 } from '@/lib/sorting'
-import {
-  appendSelectionGrid,
-  buildSelectionGrid,
-  clearSelectionGrid
-} from '@/lib/selection'
+import { buildSelectionGrid, clearSelectionGrid } from '@/lib/selection'
 import { applyFilters, getFilters, getKeyWords } from '@/lib/filtering'
 import { getFilledColumns, removeModelFromList } from '@/lib/models'
 import { computeStats } from '@/lib/stats'
@@ -100,15 +95,13 @@ const helpers = {
     cache.result = result
 
     const displayedSequences = result
-    const maxX = displayedSequences.length
-    const maxY = state.nbValidationColumns
 
     helpers.setListStats(state, result)
     Object.assign(state, {
       displayedSequences: displayedSequences,
       sequenceFilledColumns: getFilledColumns(displayedSequences),
       sequenceSearchText: sequenceSearch,
-      sequenceSelectionGrid: buildSelectionGrid(maxX, maxY)
+      sequenceSelectionGrid: buildSelectionGrid()
     })
     return result
   },
@@ -192,7 +185,7 @@ const initialState = {
   displayedSequencesTimeSpent: 0,
   displayedSequencesEstimation: 0,
   sequenceFilledColumns: [],
-  sequenceSelectionGrid: {},
+  sequenceSelectionGrid: new Set(),
   sequenceValidationColumns: [],
   isSequenceDescription: false,
   isSequenceEstimation: false,
@@ -336,6 +329,19 @@ const actions = {
     commit(CLEAR_SELECTED_SEQUENCES)
   },
 
+  deleteAllSequenceTasks(
+    { dispatch },
+    { projectId, taskTypeId, selectionOnly }
+  ) {
+    let taskIds = []
+    if (selectionOnly) {
+      taskIds = cache.result
+        .filter(sequence => sequence.validations.get(taskTypeId))
+        .map(sequence => sequence.validations.get(taskTypeId))
+    }
+    return dispatch('deleteAllTasks', { projectId, taskTypeId, taskIds })
+  },
+
   initSequences({ commit, dispatch, state, rootState, rootGetters }) {
     const productionId = rootState.route.params.production_id
     dispatch('setLastProductionScreen', 'sequences')
@@ -365,7 +371,7 @@ const actions = {
         production,
         userFilters
       })
-      return Promise.resolve(sequences)
+      return sequences
     })
   },
 
@@ -380,6 +386,11 @@ const actions = {
     const taskMap = rootGetters.taskMap
     const taskStatusMap = rootGetters.taskStatusMap
     const taskTypeMap = rootGetters.taskTypeMap
+
+    if (!production) {
+      return []
+    }
+
     if (!episode && isTVShow) {
       if (rootGetters.episodes && rootGetters.episodes.length > 0) {
         episode = rootGetters.episodes[0]
@@ -395,7 +406,7 @@ const actions = {
           taskTypeMap,
           taskStatusMap
         })
-        return Promise.resolve([])
+        return []
       }
     }
     return shotsApi
@@ -418,7 +429,7 @@ const actions = {
             userFilters
           })
         }
-        return Promise.resolve(sequences)
+        return sequences
       })
   },
 
@@ -451,7 +462,7 @@ const actions = {
       )
       return func
         .runPromiseAsSeries(createTaskPromises)
-        .then(() => Promise.resolve(sequence))
+        .then(() => sequence)
         .catch(console.error)
     })
   },
@@ -469,7 +480,7 @@ const actions = {
   deleteSequence({ commit, state }, sequence) {
     return shotsApi.deleteSequence(sequence).then(() => {
       commit(REMOVE_SEQUENCE, sequence)
-      return Promise.resolve(sequence)
+      return sequence
     })
   },
 
@@ -486,7 +497,7 @@ const actions = {
         } else {
           commit(ADD_SEQUENCE, { sequence, episodeMap })
         }
-        return Promise.resolve(sequence)
+        return sequence
       })
       .catch(console.error)
   },
@@ -498,7 +509,7 @@ const actions = {
       .getSequenceStats(productionId)
       .then(sequenceStats => {
         commit(SET_SEQUENCE_STATS, { sequenceStats, taskTypeMap })
-        return Promise.resolve(sequenceStats)
+        return sequenceStats
       })
       .catch(console.error)
   },
@@ -519,7 +530,7 @@ const actions = {
           production,
           taskTypeMap
         })
-        return Promise.resolve(sequenceRetakeStats)
+        return sequenceRetakeStats
       })
       .catch(console.error)
   },
@@ -584,10 +595,8 @@ const mutations = {
     }
     if (selected) {
       state.selectedSequences.set(sequence.id, sequence)
-      const maxX = displayedSequences.length
-      const maxY = state.nbValidationColumns
       // unselect previously selected tasks
-      state.sequenceSelectionGrid = buildSelectionGrid(maxX, maxY)
+      state.sequenceSelectionGrid = buildSelectionGrid()
     }
   },
 
@@ -724,9 +733,7 @@ const mutations = {
     state.displayedSequencesLength = displayedSequences.length
     state.sequenceFilledColumns = filledColumns
 
-    const maxX = state.displayedSequences.length
-    const maxY = state.nbValidationColumns
-    state.sequenceSelectionGrid = buildSelectionGrid(maxX, maxY)
+    state.sequenceSelectionGrid = buildSelectionGrid()
     helpers.setListStats(state, sequences)
 
     if (userFilters.sequence && userFilters.sequence[production.id]) {
@@ -796,9 +803,7 @@ const mutations = {
     sequence.validations = new Map()
     sequence.data = {}
 
-    const maxX = state.displayedSequences.length + 1
-    const maxY = state.nbValidationColumns
-    state.sequenceSelectionGrid = buildSelectionGrid(maxX, maxY)
+    state.sequenceSelectionGrid = buildSelectionGrid()
 
     cache.sequences.push(sequence)
     cache.sequences = sortByName(cache.sequences)
@@ -950,7 +955,7 @@ const mutations = {
 
   [REMOVE_SELECTED_TASK](state, validationInfo) {
     if (
-      !validationInfo.x &&
+      validationInfo.x === undefined &&
       validationInfo.task?.column &&
       cache.sequenceMap.get(validationInfo.task.entity.id)
     ) {
@@ -960,51 +965,25 @@ const mutations = {
       validationInfo.x = list.findIndex(e => e.id === entity.id)
       validationInfo.y = state.sequenceValidationColumns.indexOf(taskType.id)
     }
-    if (
-      state.sequenceSelectionGrid[0] &&
-      state.sequenceSelectionGrid[validationInfo.x]
-    ) {
-      state.sequenceSelectionGrid[validationInfo.x][validationInfo.y] = false
-    }
+    state.sequenceSelectionGrid.delete(
+      `${validationInfo.x}-${validationInfo.y}`
+    )
   },
 
   [ADD_SELECTED_TASK](state, validationInfo) {
-    if (
-      state.sequenceSelectionGrid[0] &&
-      state.sequenceSelectionGrid[validationInfo.x]
-    ) {
-      state.sequenceSelectionGrid[validationInfo.x][validationInfo.y] = true
-      state.selectedSequences = new Map() // unselect all previously selected lines
-    }
+    state.sequenceSelectionGrid.add(`${validationInfo.x}-${validationInfo.y}`)
+    state.selectedSequences = new Map() // unselect all previously selected lines
   },
 
   [ADD_SELECTED_TASKS](state, selection) {
-    let tmpGrid = JSON.parse(JSON.stringify(state.sequenceSelectionGrid))
     selection.forEach(validationInfo => {
-      if (!tmpGrid[validationInfo.x]) {
-        tmpGrid = appendSelectionGrid(
-          tmpGrid,
-          Object.keys(tmpGrid).length,
-          validationInfo.x + 1,
-          state.nbValidationColumns
-        )
-      }
-      if (tmpGrid[validationInfo.x]) {
-        tmpGrid[validationInfo.x][validationInfo.y] = true
-      }
+      state.sequenceSelectionGrid.add(`${validationInfo.x}-${validationInfo.y}`)
     })
-    state.selectedSequences = new Map() // unselect all previously selected lines
-    state.sequenceSelectionGrid = tmpGrid
+    state.selectedSequences = new Map()
   },
 
-  [CLEAR_SELECTED_TASKS](state, validationInfo) {
-    if (
-      taskStore.state.nbSelectedValidations > 0 ||
-      taskStore.state.nbSelectedTasks > 0
-    ) {
-      const tmpGrid = JSON.parse(JSON.stringify(state.sequenceSelectionGrid))
-      state.sequenceSelectionGrid = clearSelectionGrid(tmpGrid)
-    }
+  [CLEAR_SELECTED_TASKS](state) {
+    clearSelectionGrid(state.sequenceSelectionGrid)
   },
 
   [NEW_TASK_END](state, { task, production, taskTypeMap, taskStatusMap }) {
@@ -1121,17 +1100,6 @@ const mutations = {
     const sequences = cache.result
     state.displayedSequences = sequences
     state.sequenceFilledColumns = getFilledColumns(state.displayedSequences)
-    const previousX = Object.keys(state.sequenceSelectionGrid).length
-    const maxX = state.displayedSequences.length
-    const maxY = state.nbValidationColumns
-    if (previousX >= 0) {
-      state.sequenceSelectionGrid = appendSelectionGrid(
-        state.sequenceSelectionGrid,
-        previousX,
-        maxX,
-        maxY
-      )
-    }
   }
 }
 

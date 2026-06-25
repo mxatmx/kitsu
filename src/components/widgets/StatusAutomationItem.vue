@@ -1,7 +1,7 @@
 <template>
   <div class="status-automation flexrow">
     <span class="flexrow-item entity-type">
-      {{ statusAutomation.entity_type }}
+      {{ entityType }}
     </span>
     <span class="in-task-type flexrow-item">
       <task-type-name
@@ -16,11 +16,10 @@
       />
     </span>
     <span class="flexrow-item trigger-type">
-      changes
       {{
         statusAutomation.out_field_type === 'ready_for'
-          ? 'ready for to'
-          : 'task status for'
+          ? $t('status_automations.change_ready_for')
+          : $t('status_automations.change_status')
       }}
     </span>
     <span class="out-task-type flexrow-item">
@@ -32,7 +31,7 @@
       class="flexrow-item"
       v-if="statusAutomation.out_field_type === 'status'"
     >
-      to
+      {{ $t('main.to') }}
     </span>
     <span class="out-task-status flexrow-item">
       <task-status-cell
@@ -43,59 +42,39 @@
   </div>
 </template>
 
-<script>
-import { mapGetters } from 'vuex'
-
-import { pluralizeEntityType } from '@/lib/path'
+<script setup>
+import { computed } from 'vue'
+import { useI18n } from 'vue-i18n'
+import { useStore } from 'vuex'
 
 import TaskStatusCell from '@/components/cells/TaskStatusCell.vue'
 import TaskTypeName from '@/components/widgets/TaskTypeName.vue'
 
-export default {
-  name: 'status-automation-item',
+const { t } = useI18n()
+const store = useStore()
 
-  components: {
-    TaskStatusCell,
-    TaskTypeName
+const props = defineProps({
+  statusAutomation: {
+    type: Object,
+    default: null
   },
-
-  props: {
-    statusAutomation: {
-      type: Object,
-      default: null
-    },
-    productionId: {
-      type: String,
-      default: null
-    },
-    deletable: {
-      type: Boolean,
-      default: false
-    }
+  productionId: {
+    type: String,
+    default: null
   },
-
-  computed: {
-    ...mapGetters(['isCurrentUserClient', 'getTaskStatus', 'getTaskType']),
-
-    statusAutomationPath() {
-      const route = {
-        name: 'status-automation',
-        params: {
-          production_id: this.productionId,
-          status_automation_id: this.statusAutomation.id,
-          type: pluralizeEntityType(this.statusAutomation.for_entity)
-        }
-      }
-
-      if (this.statusAutomation.episode_id || this.$route.params.episode_id) {
-        route.name = 'episode-status-automation'
-        route.params.episode_id =
-          this.statusAutomation.episode_id || this.$route.params.episode_id
-      }
-      return route
-    }
+  deletable: {
+    type: Boolean,
+    default: false
   }
-}
+})
+
+const getTaskStatus = computed(() => store.getters.getTaskStatus)
+const getTaskType = computed(() => store.getters.getTaskType)
+
+const entityType = computed(() => {
+  const et = props.statusAutomation.entity_type
+  return t(`status_automations.entity_types.${et.toLowerCase()}`)
+})
 </script>
 
 <style lang="scss" scoped>

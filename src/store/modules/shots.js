@@ -1,4 +1,5 @@
 import moment from 'moment'
+
 import peopleApi from '@/store/api/people'
 import shotsApi from '@/store/api/shots'
 
@@ -20,11 +21,7 @@ import {
   sortTasks,
   sortValidationColumns
 } from '@/lib/sorting'
-import {
-  appendSelectionGrid,
-  buildSelectionGrid,
-  clearSelectionGrid
-} from '@/lib/selection'
+import { buildSelectionGrid, clearSelectionGrid } from '@/lib/selection'
 import {
   getFilledColumns,
   groupEntitiesByParents,
@@ -75,9 +72,9 @@ import {
   UNLOCK_SHOT,
   RESET_ALL,
   CLEAR_SELECTED_SHOTS,
-  SET_SHOT_SELECTION
+  SET_SHOT_SELECTION,
+  LOAD_TASK_END
 } from '@/store/mutation-types'
-import async from 'async'
 
 const cache = {
   shots: [],
@@ -246,15 +243,13 @@ const helpers = {
         ? state.displayedShots.length
         : PAGE_SIZE
     const displayedShots = result.slice(0, limit)
-    const maxX = displayedShots.length
-    const maxY = state.nbValidationColumns
 
     helpers.setListStats(state, result)
     Object.assign(state, {
       displayedShots: displayedShots,
       shotFilledColumns: getFilledColumns(displayedShots),
       shotSearchText: shotSearch,
-      shotSelectionGrid: buildSelectionGrid(maxX, maxY)
+      shotSelectionGrid: buildSelectionGrid()
     })
   }
 }
@@ -285,7 +280,7 @@ const initialState = {
   shotFilledColumns: {},
 
   shotCreated: '',
-  shotSelectionGrid: {},
+  shotSelectionGrid: new Set(),
 
   isShotsLoading: false,
   isShotsLoadingError: false,
@@ -403,6 +398,11 @@ const actions = {
     const isTVShow = rootGetters.isTVShow
     let episode = isTVShow ? rootGetters.currentEpisode : null
 
+    if (!production) {
+      if (callback) return callback()
+      return
+    }
+
     if (episode && ['all', 'main'].includes(episode.id)) {
       // If it's a wide episode, we just store it. There isn't anything to
       // load because we don't have episode defined.
@@ -517,7 +517,7 @@ const actions = {
       )
       return func
         .runPromiseAsSeries(createTaskPromises)
-        .then(() => Promise.resolve(shot))
+        .then(() => shot)
         .catch(console.error)
     })
   },
@@ -547,14 +547,13 @@ const actions = {
       } else {
         commit(REMOVE_SHOT, shot)
       }
-      return Promise.resolve()
     })
   },
 
   restoreShot({ commit, state }, shot) {
     return shotsApi.restoreShot(shot).then(shot => {
       commit(RESTORE_SHOT_END, shot)
-      return Promise.resolve(shot)
+      return shot
     })
   },
 
@@ -564,7 +563,6 @@ const actions = {
       .postCsv(production, state.shotsCsvFormData, toUpdate)
       .then(() => {
         commit(IMPORT_SHOTS_END)
-        return Promise.resolve()
       })
   },
 
@@ -592,11 +590,13 @@ const actions = {
   uploadEdlFile({ rootGetters }, { edl_file, namingConvention, matchCase }) {
     const production = rootGetters.currentProduction
     const episode = rootGetters.isTVShow ? rootGetters.currentEpisode : null
-    return shotsApi
-      .postEdl(production, edl_file, namingConvention, matchCase, episode)
-      .then(() => {
-        return Promise.resolve()
-      })
+    return shotsApi.postEdl(
+      production,
+      edl_file,
+      namingConvention,
+      matchCase,
+      episode
+    )
   },
 
   displayMoreShots({ commit, rootGetters }) {
@@ -686,8 +686,9 @@ const actions = {
     }
     const lines = shots.map(shot => {
       let shotLine = []
-      if (isTVShow)
-        shotLine.push(rootGetters.episodeMap.get(shot.episode_id).name)
+      if (isTVShow) {
+        shotLine.push(shot.episode_name)
+      }
       shotLine = shotLine.concat([
         shot.sequence_name,
         shot.name,
@@ -770,15 +771,12 @@ const actions = {
     })
   },
 
-  deleteAllShotTasks(
-    { commit, dispatch, state },
-    { projectId, taskTypeId, selectionOnly }
-  ) {
+  deleteAllShotTasks({ dispatch }, { projectId, taskTypeId, selectionOnly }) {
     let taskIds = []
     if (selectionOnly) {
       taskIds = cache.result
-        .filter(a => a.validations.get(taskTypeId))
-        .map(a => a.validations.get(taskTypeId))
+        .filter(shot => shot.validations.get(taskTypeId))
+        .map(shot => shot.validations.get(taskTypeId))
     }
     return dispatch('deleteAllTasks', { projectId, taskTypeId, taskIds })
   },
@@ -791,31 +789,19 @@ const actions = {
     commit(CLEAR_SELECTED_SHOTS)
   },
 
-  deleteSelectedShots({ state, dispatch }) {
-    return new Promise((resolve, reject) => {
-      let selectedShotIds = [...state.selectedShots.values()]
-        .filter(shot => !shot.canceled)
-        .map(shot => shot.id)
-      if (selectedShotIds.length === 0) {
-        selectedShotIds = [...state.selectedShots.keys()]
+  async deleteSelectedShots({ state, dispatch }) {
+    let selectedShotIds = [...state.selectedShots.values()]
+      .filter(shot => !shot.canceled)
+      .map(shot => shot.id)
+    if (selectedShotIds.length === 0) {
+      selectedShotIds = [...state.selectedShots.keys()]
+    }
+    for (const shotId of selectedShotIds) {
+      const shot = cache.shotMap.get(shotId)
+      if (shot) {
+        await dispatch('deleteShot', shot)
       }
-      async.eachSeries(
-        selectedShotIds,
-        (shotId, next) => {
-          const shot = cache.shotMap.get(shotId)
-          if (shot) {
-            dispatch('deleteShot', shot)
-          }
-          next()
-        },
-        err => {
-          if (err) reject(err)
-          else {
-            resolve()
-          }
-        }
-      )
-    })
+    }
   },
 
   async setNbFramesFromTaskTypePreviews(
@@ -986,9 +972,7 @@ const mutations = {
     state.displayedShots = displayedShots
     state.shotFilledColumns = filledColumns
 
-    const maxX = state.displayedShots.length
-    const maxY = state.nbValidationColumns
-    state.shotSelectionGrid = buildSelectionGrid(maxX, maxY)
+    state.shotSelectionGrid = buildSelectionGrid()
     helpers.setListStats(state, shots)
 
     state.shotSearchQueries = userFilters.shot?.[production.id] || []
@@ -1069,9 +1053,7 @@ const mutations = {
       cache.shots.push(newShot)
       cache.shots = sortShots(cache.shots)
       cache.shotMap.set(newShot.id, newShot)
-      const maxX = state.displayedShots.length
-      const maxY = state.nbValidationColumns
-      state.shotSelectionGrid = buildSelectionGrid(maxX, maxY)
+      state.shotSelectionGrid = buildSelectionGrid()
     }
     cache.shotIndex = buildShotIndex(cache.shots)
     state.shotCreated = newShot.name
@@ -1134,9 +1116,7 @@ const mutations = {
     cache.shotMap.set(shot.id, shot)
     cache.shotIndex = buildShotIndex(cache.shots)
 
-    const maxX = state.displayedShots.length
-    const maxY = state.nbValidationColumns
-    state.shotSelectionGrid = buildSelectionGrid(maxX, maxY)
+    state.shotSelectionGrid = buildSelectionGrid()
 
     if (shot.data.fps) state.isFps = true
     if (shot.nb_frames) state.isFrames = true
@@ -1177,17 +1157,6 @@ const mutations = {
         state.displayedShots.length + PAGE_SIZE
       )
       state.shotFilledColumns = getFilledColumns(state.displayedShots)
-      const previousX = Object.keys(state.shotSelectionGrid).length
-      const maxX = state.displayedShots.length
-      const maxY = state.nbValidationColumns
-      if (previousX >= 0) {
-        state.shotSelectionGrid = appendSelectionGrid(
-          state.shotSelectionGrid,
-          previousX,
-          maxX,
-          maxY
-        )
-      }
     }
   },
 
@@ -1212,7 +1181,7 @@ const mutations = {
 
   [REMOVE_SELECTED_TASK](state, validationInfo) {
     if (
-      !validationInfo.x &&
+      validationInfo.x === undefined &&
       validationInfo.task?.column &&
       cache.shotMap.get(validationInfo.task.entity.id)
     ) {
@@ -1222,31 +1191,20 @@ const mutations = {
       validationInfo.x = list.findIndex(e => e.id === entity.id)
       validationInfo.y = state.shotValidationColumns.indexOf(taskType.id)
     }
-    if (
-      state.shotSelectionGrid[0] &&
-      state.shotSelectionGrid[validationInfo.x]
-    ) {
-      state.shotSelectionGrid[validationInfo.x][validationInfo.y] = false
-    }
+    state.shotSelectionGrid.delete(`${validationInfo.x}-${validationInfo.y}`)
   },
 
   [ADD_SELECTED_TASK](state, validationInfo) {
-    if (
-      state.shotSelectionGrid[0] &&
-      state.shotSelectionGrid[validationInfo.x]
-    ) {
-      state.shotSelectionGrid[validationInfo.x][validationInfo.y] = true
-      state.selectedShots = new Map() // unselect all previously selected lines
-    }
+    state.shotSelectionGrid.add(`${validationInfo.x}-${validationInfo.y}`)
+    state.selectedShots = new Map() // unselect all previously selected lines
   },
 
-  [CLEAR_SELECTED_TASKS](state, validationInfo) {
+  [CLEAR_SELECTED_TASKS](state) {
     if (
       tasksStore.state.nbSelectedValidations > 0 ||
       tasksStore.state.nbSelectedTasks > 0
     ) {
-      const tmpGrid = JSON.parse(JSON.stringify(state.shotSelectionGrid))
-      state.shotSelectionGrid = clearSelectionGrid(tmpGrid)
+      clearSelectionGrid(state.shotSelectionGrid)
     }
   },
 
@@ -1287,23 +1245,28 @@ const mutations = {
     }
   },
 
+  [LOAD_TASK_END](state, task) {
+    const shot = cache.shotMap.get(task.entity_id)
+    if (shot) {
+      let timeSpent = 0
+      let estimation = 0
+      shot.tasks.forEach(taskId => {
+        const t = tasksStore.state.taskMap.get(taskId)
+        if (t) {
+          timeSpent += t.duration || 0
+          estimation += t.estimation || 0
+        }
+      })
+      shot.timeSpent = timeSpent
+      shot.estimation = estimation
+    }
+  },
+
   [ADD_SELECTED_TASKS](state, selection) {
-    let tmpGrid = JSON.parse(JSON.stringify(state.shotSelectionGrid))
     selection.forEach(validationInfo => {
-      if (!tmpGrid[validationInfo.x]) {
-        tmpGrid = appendSelectionGrid(
-          tmpGrid,
-          Object.keys(tmpGrid).length,
-          validationInfo.x + 1,
-          state.nbValidationColumns
-        )
-      }
-      if (tmpGrid[validationInfo.x]) {
-        tmpGrid[validationInfo.x][validationInfo.y] = true
-      }
+      state.shotSelectionGrid.add(`${validationInfo.x}-${validationInfo.y}`)
     })
-    state.selectedShots = new Map() // unselect all previously selected lines
-    state.shotSelectionGrid = tmpGrid
+    state.selectedShots = new Map()
   },
 
   [ADD_SHOT](
@@ -1382,9 +1345,7 @@ const mutations = {
       state.displayedShotsLength = cache.shots.filter(s => !s.canceled).length
       state.shotFilledColumns = getFilledColumns(state.displayedShots)
 
-      const maxX = state.displayedShots.length
-      const maxY = state.nbValidationColumns
-      state.shotSelectionGrid = buildSelectionGrid(maxX, maxY)
+      state.shotSelectionGrid = buildSelectionGrid()
     }
   },
 
@@ -1482,10 +1443,8 @@ const mutations = {
     }
     if (selected) {
       state.selectedShots.set(shot.id, shot)
-      const maxX = state.displayedShots.length
-      const maxY = state.nbValidationColumns
       // unselect previously selected tasks
-      state.shotSelectionGrid = buildSelectionGrid(maxX, maxY)
+      state.shotSelectionGrid = buildSelectionGrid()
     }
   },
 
