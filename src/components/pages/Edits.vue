@@ -206,7 +206,7 @@
       :is-loading-all="loading.creatingAllTasks"
       :is-error="errors.creatingTasks"
       :title="$t('tasks.create_tasks_edit')"
-      :text="$t('tasks.create_tasks_edit_explaination')"
+      :text="$t('tasks.create_tasks_edit_explanation')"
       :error-text="$t('tasks.create_tasks_edit_failed')"
       @cancel="hideCreateTasksModal"
       @confirm="confirmCreateTasks"
@@ -460,8 +460,13 @@ export default {
     },
 
     filteredEdits() {
+      // Build the lookup from the full edit cache, not the filtered display
+      // list, so the import creation check sees every edit.
+      // The cache Map is not reactive: depend on displayedEdits (updated
+      // by the same mutations) to invalidate this computed.
+      this.displayedEdits // eslint-disable-line no-unused-expressions
       const edits = {}
-      this.displayedEdits.forEach(edit => {
+      this.editMap.forEach(edit => {
         let editKey = ''
         if (
           this.isTVShow &&
@@ -702,7 +707,7 @@ export default {
           headers.push(this.$t('main.estimation_short'))
         }
         this.editValidationColumns.forEach(taskTypeId => {
-          headers.push(this.taskTypeMap.get(taskTypeId).name)
+          headers.push(this.taskTypeMap.get(taskTypeId)?.name || '')
           headers.push('Assignations')
         })
         csv.buildCsvFile(name, [headers].concat(editLines))
@@ -787,7 +792,7 @@ export default {
       }
     }
     return {
-      title: `${this.currentProduction.name} ${this.$t('edits.title')} - Kitsu`
+      title: `${this.currentProduction ? this.currentProduction.name : ''} ${this.$t('edits.title')} - Kitsu`
     }
   }
 }

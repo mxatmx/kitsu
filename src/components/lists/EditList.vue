@@ -460,7 +460,7 @@
       v-if="isEmptyList && !isCurrentUserClient && !isLoading"
     >
       <p class="info">
-        <img src="../../assets/illustrations/empty_edit.png" />
+        <img src="../../assets/illustrations/empty_edit.png" alt="" />
       </p>
       <p class="info">{{ $t('edits.empty_list') }}</p>
       <button-simple
@@ -474,23 +474,23 @@
       v-if="isEmptyList && isCurrentUserClient && !isLoading"
     >
       <p class="info">
-        <img src="../../assets/illustrations/empty_edit.png" />
+        <img src="../../assets/illustrations/empty_edit.png" alt="" />
       </p>
       <p class="info">{{ $t('edits.empty_list_client') }}</p>
     </div>
 
     <p class="has-text-centered nb-edits" v-if="!isEmptyList && !isLoading">
       {{ displayedEditsLength }}
-      {{ $tc('edits.number', displayedEditsLength) }}
+      {{ $t('edits.number', displayedEditsLength) }}
       <span v-if="displayedEditsTimeSpent > 0 || displayedEditsEstimation > 0">
         ({{ formatDuration(displayedEditsTimeSpent) }}
         {{
           isDurationInHours
-            ? $tc(
+            ? $t(
                 'main.hours_spent',
                 formatDuration(displayedEditsTimeSpent, false)
               )
-            : $tc(
+            : $t(
                 'main.days_spent',
                 formatDuration(displayedEditsTimeSpent, false)
               )
@@ -498,11 +498,11 @@
         {{ formatDuration(displayedEditsEstimation) }}
         {{
           isDurationInHours
-            ? $tc(
+            ? $t(
                 'main.hours_estimated',
                 formatDuration(displayedEditsEstimation, false)
               )
-            : $tc(
+            : $t(
                 'main.man_days',
                 formatDuration(displayedEditsEstimation, false)
               )

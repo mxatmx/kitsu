@@ -329,6 +329,10 @@ const actions = {
     return peopleApi.invitePerson(person)
   },
 
+  getResetPasswordLink({}, person) {
+    return peopleApi.getResetPasswordLink(person)
+  },
+
   generateToken({}, person) {
     return peopleApi.generateToken(person)
   },

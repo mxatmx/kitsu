@@ -34,7 +34,11 @@
                   selected: episode.id === selectedEpisodeId
                 }"
                 :key="episode.id"
+                role="button"
+                tabindex="0"
                 @click="selectEpisode(episode.id)"
+                @keydown.enter.prevent="selectEpisode(episode.id)"
+                @keydown.space.prevent="selectEpisode(episode.id)"
                 v-for="episode in displayedEpisodes"
               >
                 {{ episode.name }}
@@ -74,8 +78,12 @@
                   selected: sequence.id === selectedSequenceId
                 }"
                 :key="sequence.id"
+                role="button"
+                tabindex="0"
                 @keyup.tab="focusAddShot"
                 @click="selectSequence(sequence.id)"
+                @keydown.enter.prevent="selectSequence(sequence.id)"
+                @keydown.space.prevent="selectSequence(sequence.id)"
                 v-for="sequence in displayedSequences"
               >
                 {{ sequence.name }}
@@ -212,6 +220,9 @@
               <p v-if="bulkStartError" class="help is-danger">
                 {{ $t('shots.bulk_invalid_start') }}
               </p>
+              <p v-if="bulkError" class="help is-danger">
+                {{ $t('shots.bulk_error') }}
+              </p>
               <div class="field">
                 <button
                   :class="{
@@ -259,13 +270,7 @@ const props = defineProps({
   active: { type: Boolean, default: true }
 })
 
-const emit = defineEmits([
-  'add-episode',
-  'add-sequence',
-  'add-shot',
-  'add-shots-bulk',
-  'cancel'
-])
+const emit = defineEmits(['add-episode', 'add-sequence', 'add-shot', 'cancel'])
 
 useModal(toRef(props, 'active'), emit)
 
@@ -293,6 +298,7 @@ const selectedSequenceId = ref(null)
 const shotPadding = ref('1')
 const shotMode = ref('single')
 const bulk = reactive({ start: '', count: 20, step: 10 })
+const bulkError = ref(false)
 
 const currentProduction = computed(() => store.getters.currentProduction)
 const displayedEpisodes = computed(() => store.getters.displayedEpisodes)
@@ -321,7 +327,13 @@ const bulkStartError = computed(
 )
 
 const bulkPreviewNames = computed(() => {
-  if (!bulk.start || bulkStartError.value || !bulk.count || !bulk.step) {
+  if (
+    !bulk.start ||
+    bulkStartError.value ||
+    !bulk.count ||
+    !bulk.step ||
+    bulk.step < 1
+  ) {
     return []
   }
   return stringHelpers.generateBulkShotNames(bulk.start, bulk.count, bulk.step)
@@ -332,6 +344,7 @@ const isBulkGenerateAllowed = computed(
     !bulkStartError.value &&
     bulkPreviewNames.value.length > 0 &&
     !!selectedSequenceId.value &&
+    (!isTVShow.value || !!selectedEpisodeId.value) &&
     !bulkPreviewNames.value.some(name => isBulkNameCollision(name)) &&
     !loading.bulkGenerate
 )
@@ -375,28 +388,31 @@ const selectEpisode = episodeId => {
 const isBulkNameCollision = name =>
   !!displayedShots.value.find(shot => shot.name === name)
 
-const generateShots = () => {
+const generateShots = async () => {
   if (!isBulkGenerateAllowed.value) return
   loading.bulkGenerate = true
+  bulkError.value = false
   const sequence = displayedSequences.value.find(
     s => s.id === selectedSequenceId.value
   )
   const episode = isTVShow.value
     ? displayedEpisodes.value.find(e => e.id === selectedEpisodeId.value)
     : null
-  emit(
-    'add-shots-bulk',
-    {
+  try {
+    await store.dispatch('bulkCreateShots', {
       shotNames: bulkPreviewNames.value,
       sequenceName: sequence?.name,
       episodeName: episode?.name ?? null
-    },
-    () => {
-      loading.bulkGenerate = false
-      selectSequence(selectedSequenceId.value)
-      bulk.start = ''
-    }
-  )
+    })
+    await store.dispatch('loadShots')
+    selectSequence(selectedSequenceId.value)
+    bulk.start = ''
+  } catch (err) {
+    console.error(err)
+    bulkError.value = true
+  } finally {
+    loading.bulkGenerate = false
+  }
 }
 
 const addEpisode = () => {

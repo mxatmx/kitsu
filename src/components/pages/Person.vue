@@ -266,7 +266,7 @@ export default {
     this.init = true
   },
 
-  afterDestroy() {
+  unmounted() {
     this.$store.commit('LOAD_PERSON_TASKS_END', {
       tasks: [],
       userFilters: {},
@@ -308,13 +308,13 @@ export default {
 
     loggablePersonTasks() {
       return this.sortedTasks.filter(task => {
-        return this.taskTypeMap.get(task.task_type_id).allow_timelog
+        return this.taskTypeMap.get(task.task_type_id)?.allow_timelog
       })
     },
 
     loggableDoneTasks() {
       return this.sortedDoneTasks.filter(task => {
-        return this.taskTypeMap.get(task.task_type_id).allow_timelog
+        return this.taskTypeMap.get(task.task_type_id)?.allow_timelog
       })
     },
 
@@ -347,14 +347,9 @@ export default {
     },
 
     sortedAllTasks() {
-      let tasks = this.sortTasks([
-        ...this.displayedPersonTasks,
-        ...this.displayedPersonDoneTasks
-      ])
-      if (this.productionId) {
-        tasks = tasks.filter(task => task.project_id === this.productionId)
-      }
-      return tasks
+      // reuse the two cached computeds: they already carry the production
+      // filter, only the merged sort remains to do
+      return this.sortTasks([...this.sortedTasks, ...this.sortedDoneTasks])
     },
 
     tasksStartDate() {
@@ -495,7 +490,7 @@ export default {
           name: 'done'
         },
         {
-          label: this.$t('timesheets.title'),
+          label: this.$t('timesheets.timelog_title'),
           name: 'timesheets'
         },
         {
@@ -623,13 +618,19 @@ export default {
       } else if (task.end_date) {
         endDate = parseDate(task.end_date)
       } else if (task.estimation) {
-        endDate = startDate.clone().add(estimation, 'days')
+        endDate = addBusinessDays(
+          startDate,
+          Math.ceil(minutesToDays(this.organisation, estimation)) - 1
+        )
       }
       if (!endDate || endDate.isBefore(startDate)) {
         endDate = startDate.clone().add(1, 'days')
       }
 
       const taskType = this.taskTypeMap.get(task.task_type_id)
+      if (!taskType) {
+        return null
+      }
       return {
         ...task,
         name: `${task.full_entity_name} / ${taskType.name}`,
@@ -638,12 +639,21 @@ export default {
         expanded: false,
         loading: false,
         man_days: estimation,
-        editable: false,
+        editable: this.canEditTaskDates(taskType),
         unresizable: false,
         parentElement,
         color: taskType.color,
         children: []
       }
+    },
+
+    canEditTaskDates(taskType) {
+      const departments = this.user.departments || []
+      return (
+        this.isCurrentUserManager ||
+        (this.isCurrentUserSupervisor &&
+          (!departments.length || departments.includes(taskType.department_id)))
+      )
     },
 
     isActiveTab(tab) {
@@ -824,7 +834,7 @@ export default {
             start_date: item.startDate.format('YYYY-MM-DD'),
             due_date: item.endDate.format('YYYY-MM-DD')
           }
-        })
+        }).catch(console.error)
       }
     },
 

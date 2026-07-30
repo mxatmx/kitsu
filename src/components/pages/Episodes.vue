@@ -136,7 +136,7 @@
       :is-loading-all="loading.creatingAllTasks"
       :is-error="errors.creatingTasks"
       :title="$t('tasks.create_tasks_episode')"
-      :text="$t('tasks.create_tasks_episode_explaination')"
+      :text="$t('tasks.create_tasks_episode_explanation')"
       :error-text="$t('tasks.create_tasks_episode_failed')"
       @cancel="hideCreateTasksModal"
       @confirm="confirmCreateTasks"
@@ -342,7 +342,8 @@ export default {
     if (
       this.episodeMap.size < 1 ||
       this.episodeValidationColumns.length === 0 ||
-      this.episodeMap.values().next().project_id !== this.currentProduction.id
+      this.episodeMap.values().next().value?.project_id !==
+        this.currentProduction.id
     ) {
       this.loadEpisodesWithTasks()
         .then(() => {
@@ -501,7 +502,7 @@ export default {
           headers.push(this.$t('main.estimation_short'))
         }
         this.episodeValidationColumns.forEach(taskTypeId => {
-          headers.push(this.taskTypeMap.get(taskTypeId).name)
+          headers.push(this.taskTypeMap.get(taskTypeId)?.name || '')
           headers.push('Assignations')
         })
         csv.buildCsvFile(name, [headers].concat(episodeLines))
