@@ -1,90 +1,82 @@
 <template>
-  <div class="modal" :class="{ 'is-active': active }">
-    <div class="modal-background" @click="close"></div>
-    <div class="modal-content">
-      <div class="box">
-        <h1 class="title">{{ $t('people.title') }} - {{ equipment.name }}</h1>
+  <base-modal
+    :active="active"
+    :title="$t('people.title') + ' - ' + equipment.name"
+    @cancel="close"
+  >
+    <p class="mb1">
+      {{
+        $t(
+          'hardware_items.select_person',
+          'Select a person to assign this item to:'
+        )
+      }}
+    </p>
 
-        <p class="mb1">
-          {{
-            $t(
-              'hardware_items.select_person',
-              'Select a person to assign this item to:'
-            )
-          }}
-        </p>
+    <combobox
+      v-model="selectedPersonId"
+      :options="availablePeopleOptions"
+      :with-margin="false"
+      class="mb1"
+    />
 
-        <combobox
-          v-model="selectedPersonId"
-          :options="availablePeopleOptions"
-          :with-margin="false"
-          class="mb1"
-        />
+    <div class="flexrow right mt2">
+      <button
+        class="button flexrow-item is-primary"
+        :disabled="!selectedPersonId || isLoading"
+        type="button"
+        @click="assignPerson"
+      >
+        <template v-if="isLoading">
+          <spinner class="mr05 mt05" :size="20" is-white />
+          {{ $t('main.loading') }}
+        </template>
+        <template v-else>{{ $t('main.add', 'Add') }}</template>
+      </button>
 
-        <div class="flexrow right mt2">
-          <button
-            class="button flexrow-item is-primary"
-            :disabled="!selectedPersonId || isLoading"
-            type="button"
-            @click="assignPerson"
-          >
-            <template v-if="isLoading">
-              <spinner class="mr05 mt05" :size="20" is-white />
-              {{ $t('main.loading') }}
-            </template>
-            <template v-else>{{ $t('main.add', 'Add') }}</template>
-          </button>
-
-          <button
-            class="button flexrow-item is-link"
-            type="button"
-            @click="close"
-          >
-            {{ $t('main.close') }}
-          </button>
-        </div>
-
-        <hr />
-        <h2 class="subtitle mt2">
-          {{ $t('hardware_items.assigned_people', 'Assigned People') }}
-        </h2>
-
-        <table class="table is-fullwidth mt1" v-if="assignedPeople.length > 0">
-          <tbody>
-            <tr v-for="person in assignedPeople" :key="person.id">
-              <td>{{ person.full_name }}</td>
-              <td class="has-text-right">
-                <button
-                  class="button is-small is-danger is-outlined"
-                  :disabled="isLoading"
-                  @click="removePerson(person.id)"
-                >
-                  {{ $t('main.remove', 'Remove') }}
-                </button>
-              </td>
-            </tr>
-          </tbody>
-        </table>
-        <p class="has-text-grey" v-else>
-          {{ $t('hardware_items.no_assigned_people', 'No people assigned.') }}
-        </p>
-      </div>
+      <button class="button flexrow-item is-link" type="button" @click="close">
+        {{ $t('main.close') }}
+      </button>
     </div>
-  </div>
+
+    <hr />
+    <h2 class="subtitle mt2">
+      {{ $t('hardware_items.assigned_people', 'Assigned People') }}
+    </h2>
+
+    <table class="table is-fullwidth mt1" v-if="assignedPeople.length > 0">
+      <tbody>
+        <tr v-for="person in assignedPeople" :key="person.id">
+          <td>{{ person.full_name }}</td>
+          <td class="has-text-right">
+            <button
+              class="button is-small is-danger is-outlined"
+              :disabled="isLoading"
+              @click="removePerson(person.id)"
+            >
+              {{ $t('main.remove', 'Remove') }}
+            </button>
+          </td>
+        </tr>
+      </tbody>
+    </table>
+    <p class="has-text-grey" v-else>
+      {{ $t('hardware_items.no_assigned_people', 'No people assigned.') }}
+    </p>
+  </base-modal>
 </template>
 
 <script>
 import { mapActions, mapGetters } from 'vuex'
-import { modalMixin } from '@/components/modals/base_modal'
+import BaseModal from '@/components/modals/BaseModal.vue'
 import Combobox from '@/components/widgets/Combobox.vue'
 import Spinner from '@/components/widgets/Spinner.vue'
 
 export default {
   name: 'edit-equipment-persons-modal',
 
-  mixins: [modalMixin],
-
   components: {
+    BaseModal,
     Combobox,
     Spinner
   },

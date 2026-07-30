@@ -1,38 +1,28 @@
 <template>
-  <div class="modal" :class="{ 'is-active': active }">
-    <div class="modal-background" @click="close"></div>
-    <div class="modal-content">
-      <div class="box">
-        <h1 class="title">
-          {{ $t('people.equipment') }} - {{ person.full_name }}
-        </h1>
+  <base-modal
+    :active="active"
+    :title="$t('people.equipment') + ' - ' + person.full_name"
+    @cancel="close"
+  >
+    <person-equipment :person="person" />
 
-        <person-equipment :person="person" />
-
-        <div class="flexrow right mt2">
-          <button
-            class="button flexrow-item is-link"
-            type="button"
-            @click="close"
-          >
-            {{ $t('main.close') }}
-          </button>
-        </div>
-      </div>
+    <div class="flexrow right mt2">
+      <button class="button flexrow-item is-link" type="button" @click="close">
+        {{ $t('main.close') }}
+      </button>
     </div>
-  </div>
+  </base-modal>
 </template>
 
 <script>
-import { modalMixin } from '@/components/modals/base_modal'
+import BaseModal from '@/components/modals/BaseModal.vue'
 import PersonEquipment from '@/components/widgets/PersonEquipment.vue'
 
 export default {
   name: 'edit-equipment-modal',
 
-  mixins: [modalMixin],
-
   components: {
+    BaseModal,
     PersonEquipment
   },
 
